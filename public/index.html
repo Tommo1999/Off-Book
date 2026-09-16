@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Off Book</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root{
+    --ink:#12161c;
+    --panel:#1a212b;
+    --panel-2:#212a36;
+    --line:#323d4a;
+    --paper:#eee7d8;
+    --paper-dim:#b9b2a1;
+    --brass:#c19a4e;
+    --brass-dim:#8a744a;
+    --slate:#8b96a3;
+    --risk:#c2705f;
+    --agree:#7fa88f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+  }
+  #app{max-width:960px;margin:0 auto;padding:32px 20px 60px;}
+  h1,h2,h3{font-family:'Source Serif 4', serif;font-weight:600;margin:0;}
+  .eyebrow{color:var(--brass);font-size:13px;letter-spacing:0.02em;margin-bottom:6px;}
+  .lede{color:var(--slate);font-size:15px;line-height:1.5;max-width:60ch;margin-top:10px;}
+  .hero{padding:20px 0 36px;border-bottom:1px solid var(--line);margin-bottom:28px;}
+  .hero h1{font-size:34px;color:var(--paper);}
+
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:20px;}
+  .tab{
+    padding:10px 4px;margin-right:24px;background:none;border:none;
+    color:var(--slate);font-family:'IBM Plex Sans';font-size:15px;cursor:pointer;
+    border-bottom:2px solid transparent;
+  }
+  .tab.active{color:var(--paper);border-bottom-color:var(--brass);}
+  .tab:hover{color:var(--paper);}
+
+  .scenario-list{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);}
+  .scenario-item{
+    background:var(--panel);padding:16px 18px;cursor:pointer;
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+  }
+  .scenario-item:hover{background:var(--panel-2);}
+  .scenario-item.selected{background:var(--panel-2);box-shadow:inset 3px 0 0 var(--brass);}
+  .scenario-item .name{font-size:15.5px;color:var(--paper);}
+  .scenario-item .hint{font-size:13px;color:var(--slate);margin-top:3px;}
+  .chev{color:var(--brass-dim);font-size:13px;}
+
+  .brief-box{border:1px solid var(--line);background:var(--panel);padding:20px 22px;margin-top:18px;}
+  .brief-box p{margin:0 0 10px;line-height:1.55;font-size:14.5px;color:var(--paper);}
+  .brief-box .label{color:var(--brass);font-size:12.5px;margin-bottom:4px;}
+  .brief-box .obj{color:var(--paper-dim);}
+
+  textarea{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--paper);
+    font-family:'IBM Plex Sans';font-size:14px;padding:12px 14px;margin-top:14px;
+    min-height:80px;resize:vertical;
+  }
+  textarea::placeholder{color:var(--slate);}
+  textarea:focus, input:focus{outline:1px solid var(--brass);}
+
+  .btn{
+    background:var(--brass);color:var(--ink);border:none;padding:12px 22px;
+    font-family:'IBM Plex Sans';font-weight:600;font-size:14.5px;cursor:pointer;margin-top:18px;
+  }
+  .btn:hover{background:#d3ac5f;}
+  .btn:disabled{background:var(--brass-dim);cursor:not-allowed;}
+  .btn-ghost{
+    background:none;border:1px solid var(--line);color:var(--paper-dim);
+    padding:10px 18px;font-family:'IBM Plex Sans';font-size:14px;cursor:pointer;
+  }
+  .btn-ghost:hover{border-color:var(--brass-dim);color:var(--paper);}
+
+  .surprise{margin-top:22px;text-align:left;}
+  .surprise button{background:none;border:none;color:var(--slate);text-decoration:underline;
+    font-family:'IBM Plex Sans';font-size:13.5px;cursor:pointer;padding:0;}
+  .surprise button:hover{color:var(--brass);}
+
+  /* Chat screen */
+  .case-layout{display:grid;grid-template-columns:260px 1fr;gap:24px;align-items:start;}
+  @media (max-width:720px){.case-layout{grid-template-columns:1fr;}}
+  .case-file{border:1px solid var(--line);background:var(--panel);padding:18px 20px;position:sticky;top:20px;}
+  .case-file .tag{color:var(--brass);font-size:12px;margin-bottom:6px;}
+  .case-file h3{font-size:17px;color:var(--paper);margin-bottom:10px;}
+  .case-file p{font-size:13.5px;color:var(--paper-dim);line-height:1.5;margin:0 0 12px;}
+  .case-file .obj-label{color:var(--brass);font-size:12px;margin-bottom:4px;}
+  .case-file .pb{border-top:1px solid var(--line);margin-top:12px;padding-top:12px;}
+
+  .chat-thread{border:1px solid var(--line);background:var(--panel);min-height:420px;display:flex;flex-direction:column;}
+  .messages{flex:1;padding:20px 22px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;max-height:520px;}
+  .msg{max-width:88%;}
+  .msg .who{font-size:12px;color:var(--brass-dim);margin-bottom:4px;}
+  .msg.buyer{align-self:flex-end;text-align:right;}
+  .msg.buyer .who{color:var(--slate);}
+  .msg .bubble{font-size:14.5px;line-height:1.5;color:var(--paper);}
+  .msg.buyer .bubble{color:var(--paper-dim);}
+  .divider{border-top:1px solid var(--line);}
+
+  .composer{display:flex;gap:10px;padding:16px 18px;border-top:1px solid var(--line);}
+  .composer input{
+    flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--paper);
+    padding:12px 14px;font-family:'IBM Plex Sans';font-size:14.5px;
+  }
+  .composer .btn{margin-top:0;}
+  .thinking{font-size:13px;color:var(--slate);font-style:italic;}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+
+  /* Debrief */
+  .score-row{display:flex;align-items:baseline;gap:14px;margin-bottom:24px;}
+  .score{font-family:'Source Serif 4';font-size:52px;color:var(--brass);}
+  .score-label{color:var(--slate);font-size:14px;}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media (max-width:640px){.cols{grid-template-columns:1fr;}}
+  .col h4{font-size:13px;color:var(--slate);margin-bottom:10px;}
+  .col.strengths h4{color:var(--agree);}
+  .col.misses h4{color:var(--risk);}
+  .col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;}
+  .col li{font-size:14px;line-height:1.5;padding-left:14px;border-left:2px solid var(--line);}
+  .col.strengths li{border-left-color:var(--agree);}
+  .col.misses li{border-left-color:var(--risk);}
+  .tactics{margin-top:24px;padding-top:20px;border-top:1px solid var(--line);}
+  .tactics h4{font-size:13px;color:var(--brass);margin-bottom:10px;}
+  .tactics p{font-size:14px;color:var(--paper-dim);line-height:1.6;margin:0;}
+  .coaching{margin-top:20px;padding:16px 18px;background:var(--panel-2);border-left:2px solid var(--brass);}
+  .coaching p{margin:0;font-size:14px;line-height:1.55;color:var(--paper);}
+
+  .errbox{border:1px solid var(--risk);background:var(--panel);padding:14px 16px;color:var(--risk);font-size:13.5px;margin-top:16px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const SCENARIOS = {
+  category: {
+    label: "New category",
+    hint: "First time buying in this spend area, no internal benchmark",
+    items: [
+      {
+        id:'agency',
+        name:'Creative agency retainer',
+        hint:'12-month marketing retainer, first time buying agency services',
+        supplierRole:"a creative agency's commercial director",
+        brief:"Your company is hiring a creative/marketing agency for the first time under a 12-month retainer. You have no internal benchmark rates and are unfamiliar with standard structures — retainer vs. project fees, usage rights, exclusivity clauses.",
+        objective:"Land a fair retainer structure and understand what usage rights should reasonably cost, without signalling that you have no idea what 'normal' looks like."
+      },
+      {
+        id:'fm',
+        name:'Facilities management, new HQ',
+        hint:'Bundled cleaning, security and maintenance for a new site',
+        supplierRole:"a facilities management account director",
+        brief:"Your company is moving to a new headquarters and needs a facilities management contract for the first time — cleaning, security and maintenance, potentially bundled.",
+        objective:"Work out whether bundling these services helps or hurts you commercially, without giving away that you haven't decided."
+      }
+    ]
+  },
+  country: {
+    label: "New country",
+    hint: "Unfamiliar negotiation norms, no cultural playbook",
+    items: [
+      {
+        id:'vietnam',
+        name:'Raw materials, Vietnam',
+        hint:'First sourcing relationship in Southeast Asia',
+        supplierRole:"a Vietnamese raw materials export manager",
+        brief:"You are sourcing a critical raw material from a new supplier in Vietnam for the first time. Negotiation pace, payment terms (letter of credit vs. open account) and relationship-building expectations differ from what you're used to.",
+        objective:"Secure workable payment terms and delivery guarantees without misreading patience for weakness, or directness for hostility."
+      },
+      {
+        id:'germany',
+        name:'IT hardware, Germany',
+        hint:'Direct, detail-driven counterpart, low tolerance for ambiguity',
+        supplierRole:"a German IT hardware sales director",
+        brief:"You are negotiating an IT hardware supply contract with a German supplier for the first time. Their style is direct, precise and impatient with vague requirements or unprepared questions.",
+        objective:"Come in with exact specs and hold your ground on warranty terms without losing credibility on the details."
+      }
+    ]
+  },
+
+  situation: {
+  label: "New situation",
+  hint: "A structural pressure you haven't faced before",
+  items: [
+    {
+      id:'software-renewal',
+      name:'IT software renewal',
+      hint:'Existing supplier proposes a significant price increase at renewal',
+      supplierRole:"the commercial account manager for an established software supplier",
+      brief:"Your company has used the supplier's software platform for several years and is approaching contract renewal. The supplier has proposed a significant price increase. You are an existing customer, so the supplier wants to retain your business, but they also want to protect their revenue and margin.",
+      objective:"Renew the contract while protecting the supplier's commercial position. Avoid unnecessary discounts. If you make a concession, seek something valuable in return, such as a longer commitment, increased volume, earlier payment, or reduced service requirements."
+    },
+    {
+      id:'solesource',
+      name:'Sole-source safety component',
+      hint:'You just found out they are your only compliant vendor',
+      supplierRole:"the account director of your organisation's only compliant vendor for a safety-critical component",
+      brief:"You've just discovered this is your only qualified, compliant supplier for a safety-critical component. They may already sense they hold all the leverage.",
+      objective:"Protect supply continuity and cost without revealing exactly how exposed your position is."
+    },
+      {
+        id:'ma',
+        name:'Inherited M&A contract',
+        hint:'Legacy terms, supplier says nothing changes until renewal',
+        supplierRole:"a long-standing supplier account manager",
+        brief:"Following an acquisition, you've inherited a legacy contract with unfavourable terms. The supplier insists nothing can change until renewal, eighteen months away.",
+        objective:"Find real leverage to reopen terms early, despite the 'no changes until renewal' position."
+      }
+    ]
+  }
+};
+
+let state = {
+  screen: 'setup',
+  activeTab: 'category',
+  selectedScenario: null,
+  playbook: '',
+  dealData: '',
+  targetValue: '',
+  customRaw: '',
+  generatingCase: false,
+  genError: null,
+  shareChecked: false,
+  anonPreview: null,
+  anonPreviewLoading: false,
+  anonPreviewError: null,
+  libSaveStatus: null,
+  libraryScenarios: null,
+  libraryLoading: false,
+  libraryError: null,
+  messages: [],
+  loading: false,
+  debrief: null,
+  error: null
+};
+
+function allScenariosFlat(){
+  return Object.values(SCENARIOS).flatMap(g => g.items);
+}
+
+async function callClaude(messages, system, maxTokens){
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: maxTokens || 1000,
+      system: system,
+      messages: messages
+    })
+  });
+  if(!resp.ok) throw new Error("API request failed: " + resp.status);
+  const data = await resp.json();
+  const textBlock = data.content.find(b => b.type === "text");
+  if(!textBlock) throw new Error("No text in response");
+  return textBlock.text;
+}
+
+function supplierSystemPrompt(scenario, playbook){
+  return `You are roleplaying as ${scenario.supplierRole} in a live negotiation.
+
+SITUATION: ${scenario.brief}
+
+Stay fully in character as the supplier at all times. Never break character, never praise the buyer's technique, never mention that you are an AI.
+
+You are experienced and protecting your own commercial interests. Do not concede, discount, or soften your position easily. Do not reveal your walkaway point or internal limits.
+
+Use realistic supplier negotiation tactics suited to this situation: anchoring high, bundling, creating urgency, exploiting the buyer's inexperience in this category, country or situation, testing whether the buyer actually knows what they're asking for.
+
+If the buyer asks sharp, well-structured questions, proposes fair trades, or demonstrates they have alternatives, respond realistically — real suppliers do adjust to a buyer who clearly knows the ground. If the buyer is vague, accepts your anchors, or caves under mild pressure, exploit that realistically rather than helping them.
+
+${playbook ? "The buyer's organisation has internal negotiation guidance you are not privy to, but it may show up in how sharp their questions are:\n" + playbook : ""}
+
+Keep responses to 2-5 sentences, written like something a real negotiator would actually say — not a lecture, not a summary of tactics.`;
+}
+
+function debriefSystemPrompt(scenario, dealData, targetValue){
+  return `You are a sharp, experienced procurement negotiation coach reviewing a training transcript.
+
+SCENARIO: ${scenario.brief}
+BUYER'S OBJECTIVE: ${scenario.objective}
+${dealData ? `BUYER'S REAL NUMBERS GOING IN (private — the supplier only knows what the buyer actually said in the transcript): ${dealData}\nAssess whether, when, and how well the buyer used these numbers: did they lead with them, hold them back too long, disclose them at a moment that gained leverage, or fail to use them at all?` : ''}
+${targetValue ? `BUYER'S REAL TARGET / WALKAWAY (private, not known to the supplier): ${targetValue}\nCRITICAL: first work out whether the final outcome in the transcript actually met or beat this target. If it did, that is a genuine win regardless of how the technique looked along the way — do not mark down an outcome that beat the buyer's own target just because the process wasn't textbook. Technique feedback and outcome quality are separate things; report both, but never let imperfect technique imply a bad outcome when the numbers say otherwise.` : ''}
+
+Assess only the buyer's turns in the transcript. Return ONLY valid JSON, with no markdown code fences and no preamble, in exactly this shape:
+{"score": <integer 1-10, reflecting technique and readiness for next time, NOT outcome quality>, "outcomeVsTarget": "${targetValue ? 'one sentence stating plainly whether the final outcome beat, met, or missed the buyer\'s stated target, with the numbers' : 'one sentence noting no target was provided, so outcome quality vs target could not be assessed'}", "strengths": ["...", "..."], "misses": ["...", "..."], "supplierTactics": "one or two sentences naming the tactics the supplier used", "coachingTip": "one concrete, specific thing to do differently next time"}
+
+Each strengths/misses item should be one short, specific sentence grounded in something the buyer actually said. 2-4 items each. Be honest, not encouraging for its own sake.`;
+}
+
+function caseBuilderSystemPrompt(){
+  return `You help structure a real negotiation situation, described by a procurement professional, into a training case brief.
+
+Given their raw description, return ONLY valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"name": "3-6 word title", "supplierRole": "a few words describing who the buyer is negotiating against, e.g. 'a regional logistics account director'", "brief": "2-4 sentences, written to the buyer in second person, capturing the real situation, stakes and what makes it hard", "objective": "one sentence: what the buyer is actually trying to achieve"}
+
+Base this only on what the buyer actually wrote. Do not invent numbers, names or details they didn't mention.`;
+}
+
+function escAttr(str){
+  return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+function anonymizeSystemPrompt(){
+  return `You prepare a real negotiation scenario for an anonymous, shared training library used by other procurement professionals.
+
+Rewrite the case so nobody could identify the company, individuals, or exact deal involved, while keeping the negotiation dynamic realistic and useful to practice. Generalise any specific identifying numbers into realistic ranges (e.g. "a contract worth roughly £2-3m" rather than an exact figure). Remove company names, personal names, and any detail specific enough to identify the organisation.
+
+Return ONLY valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"name": "3-6 word title", "supplierRole": "...", "brief": "...", "objective": "..."}`;
+}
+
+async function loadLibrary(){
+  state.libraryLoading = true;
+  state.libraryError = null;
+  render();
+  try{
+    const res = await window.storage.get('library-index', true);
+    state.libraryScenarios = res ? JSON.parse(res.value) : [];
+  }catch(err){
+    state.libraryScenarios = [];
+  }finally{
+    state.libraryLoading = false;
+    render();
+  }
+}
+
+async function generateAnonPreview(scenario, rawText){
+  state.anonPreviewLoading = true;
+  state.anonPreviewError = null;
+  render();
+  try{
+    const raw = await callClaude(
+      [{role:'user', content: `Buyer's raw description:\n${rawText}\n\nStructured case brief already produced:\n${JSON.stringify(scenario)}`}],
+      anonymizeSystemPrompt(),
+      500
+    );
+    const clean = raw.replace(/```json|```/g, '').trim();
+    state.anonPreview = JSON.parse(clean);
+  }catch(err){
+    state.anonPreviewError = "Couldn't generate an anonymised preview. Try again.";
+  }finally{
+    state.anonPreviewLoading = false;
+    render();
+  }
+}
+
+async function confirmAddToLibrary(){
+  state.libSaveStatus = 'saving';
+  render();
+  try{
+    const nameEl = document.getElementById('preview-name');
+    const roleEl = document.getElementById('preview-role');
+    const briefEl = document.getElementById('preview-brief');
+    const objEl = document.getElementById('preview-objective');
+    const finalEntry = {
+      name: nameEl ? nameEl.value : state.anonPreview.name,
+      supplierRole: roleEl ? roleEl.value : state.anonPreview.supplierRole,
+      brief: briefEl ? briefEl.value : state.anonPreview.brief,
+      objective: objEl ? objEl.value : state.anonPreview.objective,
+      id: 'lib-' + Date.now()
+    };
+    let current = [];
+    try{
+      const res = await window.storage.get('library-index', true);
+      current = res ? JSON.parse(res.value) : [];
+    }catch(e){ current = []; }
+    current.unshift(finalEntry);
+    if(current.length > 50) current = current.slice(0, 50);
+    await window.storage.set('library-index', JSON.stringify(current), true);
+    state.libSaveStatus = 'saved';
+  }catch(err){
+    state.libSaveStatus = 'error';
+  }finally{
+    render();
+  }
+}
+
+async function generateCustomCase(){
+  const text = state.customRaw.trim();
+  if(!text) return;
+  state.generatingCase = true;
+  state.genError = null;
+  state.shareChecked = false;
+  state.anonPreview = null;
+  state.libSaveStatus = null;
+  render();
+  try{
+    const raw = await callClaude(
+      [{role:'user', content: text}],
+      caseBuilderSystemPrompt(),
+      500
+    );
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    parsed.id = 'custom-' + Date.now();
+    state.selectedScenario = parsed;
+  }catch(err){
+    state.genError = "Couldn't build a case brief from that. Try adding a bit more detail.";
+  }finally{
+    state.generatingCase = false;
+    render();
+  }
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if(state.screen === 'setup') app.innerHTML = renderSetup();
+  else if(state.screen === 'chat') app.innerHTML = renderChat();
+  else if(state.screen === 'debrief') app.innerHTML = renderDebrief();
+  attachHandlers();
+  const thread = document.querySelector('.messages');
+  if(thread) thread.scrollTop = thread.scrollHeight;
+}
+
+function renderSetup(){
+  const presetTabs = Object.keys(SCENARIOS).map(key => {
+    const g = SCENARIOS[key];
+    return `<button class="tab ${state.activeTab===key?'active':''}" data-tab="${key}">${g.label}</button>`;
+  }).join('');
+  const extraTabs = `
+    <button class="tab ${state.activeTab==='custom'?'active':''}" data-tab="custom">Paste a real case</button>
+    <button class="tab ${state.activeTab==='library'?'active':''}" data-tab="library">Community library</button>
+  `;
+  const tabs = presetTabs + extraTabs;
+
+  let body = '';
+
+  if(state.activeTab === 'custom'){
+    body = `
+      <p class="lede" style="margin-bottom:6px;">Paste a summary of a real negotiation you're facing — who you're up against, the context, what's at stake. It'll be turned into a case brief you can practice against.</p>
+      <textarea id="custom-raw" placeholder="e.g. We're renegotiating our facilities contract mid-term because service levels have slipped. The supplier knows we're mid-lease and hard to replace quickly..." style="min-height:120px;">${state.customRaw}</textarea>
+      <button class="btn" id="generate-case-btn" ${state.generatingCase ? 'disabled' : ''}>${state.generatingCase ? 'Building case brief…' : 'Build case brief'}</button>
+      ${state.genError ? `<div class="errbox">${state.genError}</div>` : ''}
+    `;
+  } else if(state.activeTab === 'library'){
+    if(state.libraryLoading){
+      body = `<p class="lede">Loading shared scenarios…</p>`;
+    } else if(!state.libraryScenarios || state.libraryScenarios.length === 0){
+      body = `<p class="lede">No shared scenarios yet. Be the first — paste a real case under "Paste a real case" and add it to the library once it's built.</p>`;
+    } else {
+      body = `<div class="scenario-list">${state.libraryScenarios.map(item => {
+        const sel = state.selectedScenario && state.selectedScenario.id === item.id;
+        return `<div class="scenario-item ${sel?'selected':''}" data-lib-scenario="${item.id}">
+          <div><div class="name">${item.name}</div><div class="hint">${item.supplierRole}</div></div>
+          <div class="chev">${sel ? 'selected' : 'choose'}</div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+  } else {
+    const group = SCENARIOS[state.activeTab];
+    const items = group.items.map(item => {
+      const sel = state.selectedScenario && state.selectedScenario.id === item.id;
+      return `<div class="scenario-item ${sel?'selected':''}" data-scenario="${item.id}">
+        <div><div class="name">${item.name}</div><div class="hint">${item.hint}</div></div>
+        <div class="chev">${sel ? 'selected' : 'choose'}</div>
+      </div>`;
+    }).join('');
+    body = `<div class="scenario-list">${items}</div>`;
+  }
+
+  const showShareOption = state.activeTab === 'custom' && state.selectedScenario && state.selectedScenario.id && state.selectedScenario.id.startsWith('custom-');
+
+  const shareBlock = showShareOption ? `
+    <div class="pb" style="margin-top:16px;">
+      <label style="display:flex;gap:8px;align-items:flex-start;font-size:13.5px;color:var(--paper-dim);cursor:pointer;">
+        <input type="checkbox" id="share-checkbox" ${state.shareChecked ? 'checked' : ''} style="margin-top:2px;" />
+        <span>Anonymise this case and add it to the shared community library, visible to everyone who uses this tool.</span>
+      </label>
+      ${state.shareChecked && !state.anonPreview ? `
+        <button class="btn-ghost" id="preview-anon-btn" style="margin-top:12px;" ${state.anonPreviewLoading?'disabled':''}>${state.anonPreviewLoading ? 'Anonymising…' : 'Generate anonymised preview'}</button>
+        ${state.anonPreviewError ? `<div class="errbox">${state.anonPreviewError}</div>` : ''}
+      ` : ''}
+      ${state.shareChecked && state.anonPreview ? `
+        <div style="border:1px solid var(--brass-dim);background:var(--panel-2);padding:14px 16px;margin-top:14px;">
+          <div class="label" style="margin-bottom:8px;">Review before this goes to the shared library — edit anything that still looks identifiable</div>
+          <input id="preview-name" value="${escAttr(state.anonPreview.name)}" style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--paper);padding:8px 10px;font-family:'IBM Plex Sans';font-size:13.5px;margin-bottom:8px;" />
+          <input id="preview-role" value="${escAttr(state.anonPreview.supplierRole)}" style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--paper);padding:8px 10px;font-family:'IBM Plex Sans';font-size:13.5px;margin-bottom:8px;" />
+          <textarea id="preview-brief" style="min-height:70px;margin-top:0;">${state.anonPreview.brief}</textarea>
+          <textarea id="preview-objective" style="min-height:50px;">${state.anonPreview.objective}</textarea>
+          <div style="display:flex;gap:10px;margin-top:10px;">
+            <button class="btn" id="confirm-save-btn" style="margin-top:0;" ${state.libSaveStatus==='saving'?'disabled':''}>${state.libSaveStatus==='saving' ? 'Saving…' : state.libSaveStatus==='saved' ? 'Added to library ✓' : 'Looks good — add to library'}</button>
+            <button class="btn-ghost" id="redo-preview-btn" style="margin-top:0;" ${state.anonPreviewLoading?'disabled':''}>Regenerate</button>
+          </div>
+          ${state.libSaveStatus==='error' ? `<div class="errbox">Couldn't save to the library. You can still start the negotiation.</div>` : ''}
+        </div>
+      ` : ''}
+    </div>` : '';
+
+  const briefBox = state.selectedScenario ? `
+    <div class="brief-box">
+      <div class="label">Case brief</div>
+      <p>${state.selectedScenario.brief}</p>
+      <div class="label">Your objective</div>
+      <p class="obj">${state.selectedScenario.objective}</p>
+      <textarea id="deal-data" placeholder="Your real deal numbers (optional) — current spend, contract value, budget ceiling, targets. For your reference only: the supplier won't know these unless you choose to say them out loud">${state.dealData}</textarea>
+      <textarea id="target-value" placeholder="Your target / walkaway point (optional but recommended) — the number or terms that would actually count as a win here. The debrief will judge the outcome against THIS, separately from your technique">${state.targetValue}</textarea>
+      <textarea id="playbook" placeholder="Paste your playbook, red-lines, or negotiation guidance (optional) — it will sharpen the supplier's questions, not soften them">${state.playbook}</textarea>
+      ${shareBlock}
+      <button class="btn" id="start-btn">Start negotiation</button>
+    </div>` : '';
+
+  return `
+    <div class="hero">
+      <div class="eyebrow">Off Book — negotiation practice for indirect buyers</div>
+      <h1>Practice the negotiations you've never run before.</h1>
+      <p class="lede">Indirect buyers rarely repeat the same category twice. Pick the kind of exposure you're least prepared for, and negotiate it live against a supplier who won't go easy on you.</p>
+    </div>
+    <div class="tabs">${tabs}</div>
+    ${body}
+    ${briefBox}
+    ${state.activeTab !== 'custom' && state.activeTab !== 'library' ? `<div class="surprise"><button id="surprise-btn">Surprise me with a random scenario</button></div>` : ''}
+  `;
+}
+
+function renderChat(){
+  const s = state.selectedScenario;
+  const msgs = state.messages.map(m => `
+    <div class="msg ${m.role === 'user' ? 'buyer' : 'supplier'}">
+      <div class="who">${m.role === 'user' ? 'You' : s.supplierRole}</div>
+      <div class="bubble">${m.content}</div>
+    </div>
+  `).join('');
+
+  return `
+    <div class="toolbar">
+      <div class="eyebrow">${s.name}</div>
+      <button class="btn-ghost" id="end-btn" ${state.messages.length < 2 ? 'disabled' : ''}>End & get debrief</button>
+    </div>
+    <div class="case-layout">
+      <div class="case-file">
+        <div class="tag">Case file</div>
+        <h3>${s.name}</h3>
+        <p>${s.brief}</p>
+        <div class="obj-label">Objective</div>
+        <p>${s.objective}</p>
+        ${state.dealData ? `<div class="pb"><div class="obj-label">Your numbers (private)</div><p>${state.dealData}</p></div>` : ''}
+        ${state.targetValue ? `<div class="pb"><div class="obj-label">Your target / walkaway (private)</div><p>${state.targetValue}</p></div>` : ''}
+        ${state.playbook ? `<div class="pb"><div class="obj-label">Your playbook notes</div><p>${state.playbook}</p></div>` : ''}
+      </div>
+      <div class="chat-thread">
+        <div class="messages">
+          ${msgs}
+          ${state.loading ? '<div class="thinking">the supplier is typing…</div>' : ''}
+        </div>
+        <div class="composer">
+          <input id="chat-input" type="text" placeholder="Say something to open or respond…" ${state.loading?'disabled':''} />
+          <button class="btn" id="send-btn" ${state.loading?'disabled':''}>Send</button>
+        </div>
+      </div>
+    </div>
+    ${state.error ? `<div class="errbox">${state.error}</div>` : ''}
+  `;
+}
+
+function renderDebrief(){
+  if(state.loading){
+    return `<div class="hero"><div class="eyebrow">Debrief</div><h1>Reviewing the transcript…</h1></div><p class="lede">Scoring your questions, your concessions, and what the supplier got away with.</p>`;
+  }
+  if(!state.debrief){
+    return `<div class="errbox">${state.error || 'Something went wrong generating the debrief.'}</div>
+      <button class="btn-ghost" id="retry-debrief">Try again</button>`;
+  }
+  const d = state.debrief;
+  return `
+    <div class="hero">
+      <div class="eyebrow">Debrief — ${state.selectedScenario.name}</div>
+      <h1>How that negotiation actually went.</h1>
+    </div>
+    <div class="score-row">
+      <div class="score">${d.score}/10</div>
+      <div class="score-label">technique &amp; readiness for next time<br/>(not the same as outcome quality)</div>
+    </div>
+    ${d.outcomeVsTarget ? `<div class="coaching" style="border-left-color:var(--agree);margin-bottom:24px;"><p><strong style="color:var(--agree);">Outcome vs. your target: </strong>${d.outcomeVsTarget}</p></div>` : ''}
+    <div class="cols">
+      <div class="col strengths">
+        <h4>What worked</h4>
+        <ul>${d.strengths.map(x => `<li>${x}</li>`).join('')}</ul>
+      </div>
+      <div class="col misses">
+        <h4>What to fix</h4>
+        <ul>${d.misses.map(x => `<li>${x}</li>`).join('')}</ul>
+      </div>
+    </div>
+    <div class="tactics">
+      <h4>Tactics the supplier used on you</h4>
+      <p>${d.supplierTactics}</p>
+    </div>
+    <div class="coaching">
+      <p>${d.coachingTip}</p>
+    </div>
+    <button class="btn-ghost" id="restart-btn" style="margin-top:28px;">Run another scenario</button>
+  `;
+}
+
+function attachHandlers(){
+  document.querySelectorAll('.tab').forEach(el => {
+    el.onclick = () => {
+      state.activeTab = el.dataset.tab;
+      state.selectedScenario = null;
+      state.shareChecked = false;
+      state.libSaveStatus = null;
+      if(state.activeTab === 'library' && state.libraryScenarios === null){
+        loadLibrary();
+      } else {
+        render();
+      }
+    };
+  });
+  document.querySelectorAll('.scenario-item[data-scenario]').forEach(el => {
+    el.onclick = () => {
+      const id = el.dataset.scenario;
+      state.selectedScenario = allScenariosFlat().find(s => s.id === id);
+      render();
+    };
+  });
+  document.querySelectorAll('.scenario-item[data-lib-scenario]').forEach(el => {
+    el.onclick = () => {
+      const id = el.dataset.libScenario;
+      state.selectedScenario = state.libraryScenarios.find(s => s.id === id);
+      render();
+    };
+  });
+  const surpriseBtn = document.getElementById('surprise-btn');
+  if(surpriseBtn) surpriseBtn.onclick = () => {
+    const all = allScenariosFlat();
+    state.selectedScenario = all[Math.floor(Math.random()*all.length)];
+    render();
+  };
+  const pbEl = document.getElementById('playbook');
+  if(pbEl) pbEl.oninput = () => { state.playbook = pbEl.value; };
+  const ddEl = document.getElementById('deal-data');
+  if(ddEl) ddEl.oninput = () => { state.dealData = ddEl.value; };
+  const tvEl = document.getElementById('target-value');
+  if(tvEl) tvEl.oninput = () => { state.targetValue = tvEl.value; };
+  const crEl = document.getElementById('custom-raw');
+  if(crEl) crEl.oninput = () => { state.customRaw = crEl.value; };
+
+  const genBtn = document.getElementById('generate-case-btn');
+  if(genBtn) genBtn.onclick = generateCustomCase;
+
+  const shareCb = document.getElementById('share-checkbox');
+  if(shareCb) shareCb.onchange = () => { state.shareChecked = shareCb.checked; state.anonPreview = null; state.libSaveStatus = null; render(); };
+
+  const previewBtn = document.getElementById('preview-anon-btn');
+  if(previewBtn) previewBtn.onclick = () => generateAnonPreview(state.selectedScenario, state.customRaw);
+
+  const confirmSaveBtn = document.getElementById('confirm-save-btn');
+  if(confirmSaveBtn) confirmSaveBtn.onclick = confirmAddToLibrary;
+
+  const redoBtn = document.getElementById('redo-preview-btn');
+  if(redoBtn) redoBtn.onclick = () => { state.anonPreview = null; state.libSaveStatus = null; generateAnonPreview(state.selectedScenario, state.customRaw); };
+
+  const startBtn = document.getElementById('start-btn');
+  if(startBtn) startBtn.onclick = startNegotiation;
+  
+  const sendBtn = document.getElementById('send-btn');
+  const chatInput = document.getElementById('chat-input');
+  if(sendBtn) sendBtn.onclick = sendMessage;
+  if(chatInput) chatInput.onkeydown = (e) => { if(e.key === 'Enter') sendMessage(); };
+
+  const endBtn = document.getElementById('end-btn');
+  if(endBtn) endBtn.onclick = runDebrief;
+
+  const restartBtn = document.getElementById('restart-btn');
+  if(restartBtn) restartBtn.onclick = () => {
+    state = { screen:'setup', activeTab:'category', selectedScenario:null, playbook:'', dealData:'', targetValue:'', customRaw:'', generatingCase:false, genError:null, shareChecked:false, anonPreview:null, anonPreviewLoading:false, anonPreviewError:null, libSaveStatus:null, libraryScenarios:null, libraryLoading:false, libraryError:null, messages:[], loading:false, debrief:null, error:null };
+    render();
+  };
+
+  const retryDebrief = document.getElementById('retry-debrief');
+  if(retryDebrief) retryDebrief.onclick = runDebrief;
+}
+
+async function startNegotiation(){
+  if(!state.selectedScenario || state.loading) return;
+
+  state.loading = true;
+  state.error = null;
+  render();
+
+  try{
+    const response = await fetch("/api/sessions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+     body: JSON.stringify({
+     scenario: state.selectedScenario
+    })
+    });
+
+    if(!response.ok){
+      throw new Error("Failed to create session");
+    }
+
+    const session = await response.json();
+
+    state.sessionId = session.id;
+    state.screen = 'chat';
+    state.messages = [];
+
+  }catch(err){
+    console.error(err);
+    state.error = "Couldn't start the negotiation. Please try again.";
+  }finally{
+    state.loading = false;
+    render();
+  }
+}
+async function sendMessage(){
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+
+  if(!text || state.loading) return;
+
+  state.loading = true;
+  state.error = null;
+
+  // Show the user's message immediately
+  state.messages.push({
+    role: 'user',
+    content: text
+  });
+
+  input.value = '';
+  render();
+
+  try{
+    const response = await fetch(`/api/sessions/${state.sessionId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: text
+      })
+    });
+
+    if(!response.ok){
+      throw new Error("Failed to send message");
+    }
+
+    const data = await response.json();
+
+    // Convert backend messages into the format used by the frontend
+    state.messages = data.messages.map(m => ({
+      role: m.sender === 'user' ? 'user' : 'assistant',
+      content: m.message
+    }));
+
+  }catch(err){
+    console.error(err);
+    state.error = "Couldn't reach the supplier simulation. Try sending again.";
+
+    // Remove the user's message if the request failed
+    state.messages = state.messages.filter(
+      m => !(m.role === 'user' && m.content === text)
+    );
+  }finally{
+    state.loading = false;
+    render();
+  }
+}
+
+async function runDebrief(){
+  state.screen = 'debrief';
+  state.loading = true;
+  state.debrief = null;
+  state.error = null;
+  render();
+
+  try{
+    const response = await fetch(`/api/sessions/${state.sessionId}/debrief`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+
+    if(!response.ok){
+      throw new Error("Failed to generate debrief");
+    }
+
+    const data = await response.json();
+
+    state.debrief = data.debrief;
+
+  }catch(err){
+    console.error(err);
+    state.error = "Couldn't generate the debrief. Try again.";
+  }finally{
+    state.loading = false;
+    render();
+  }
+}
+
+render();
+</script>
+</body>
+</html>
