@@ -382,4 +382,85 @@ Even if the user's description is brief, always return a complete JSON object co
     }
 });
 
+router.post("/anonymize-case", async (req, res) => {
+    const { rawText, scenario } = req.body;
+
+    if (!rawText || !scenario) {
+        return res.status(400).json({
+            error: "Raw text and scenario are required"
+        });
+    }
+
+    try {
+        const response = await anthropic.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 500,
+            system: `
+You prepare a real negotiation scenario for an anonymous, shared training library used by other procurement professionals.
+
+Rewrite the case so nobody could identify the company, individuals, or exact deal involved, while keeping the negotiation dynamic realistic and useful to practice.
+
+IMPORTANT RULES:
+- Remove company names.
+- Remove personal names.
+- Remove identifying locations.
+- Remove identifying project names.
+- Generalise specific numbers into realistic ranges where necessary.
+- Do not invent major facts that change the negotiation.
+- Keep the commercial situation and negotiation dynamic intact.
+- Make the result suitable for another procurement professional to practise.
+- Do not include markdown.
+- Do not include commentary before or after the JSON.
+
+Return ONLY valid JSON in exactly this structure:
+
+{
+  "name": "3-6 word title",
+  "supplierRole": "a short description of who the buyer is negotiating against",
+  "brief": "2-4 sentences describing the anonymised negotiation situation",
+  "objective": "one sentence describing what the buyer is trying to achieve"
+}
+`,
+            messages: [
+                {
+                    role: "user",
+                    content: `
+Buyer's raw description:
+
+${rawText}
+
+Structured case brief:
+
+${JSON.stringify(scenario)}
+`
+                }
+            ]
+        });
+
+        const textBlock = response.content.find(
+            block => block.type === "text"
+        );
+
+        if (!textBlock) {
+            throw new Error("Claude returned no text response");
+        }
+
+        const clean = textBlock.text
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+
+        const parsed = JSON.parse(clean);
+
+        res.json(parsed);
+
+    } catch (error) {
+        console.error("Anonymisation error:", error);
+
+        res.status(500).json({
+            error: "Couldn't anonymise case"
+        });
+    }
+});
+
 module.exports = router;

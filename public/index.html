@@ -345,17 +345,34 @@ async function loadLibrary(){
 async function generateAnonPreview(scenario, rawText){
   state.anonPreviewLoading = true;
   state.anonPreviewError = null;
+
   render();
+
   try{
-    const raw = await callClaude(
-      [{role:'user', content: `Buyer's raw description:\n${rawText}\n\nStructured case brief already produced:\n${JSON.stringify(scenario)}`}],
-      anonymizeSystemPrompt(),
-      500
-    );
-    const clean = raw.replace(/```json|```/g, '').trim();
-    state.anonPreview = JSON.parse(clean);
+    const response = await fetch("/api/sessions/anonymize-case", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        rawText: rawText,
+        scenario: scenario
+      })
+    });
+
+    if(!response.ok){
+      throw new Error("Failed to anonymize case");
+    }
+
+    const data = await response.json();
+
+    state.anonPreview = data;
+
   }catch(err){
+    console.error(err);
+
     state.anonPreviewError = "Couldn't generate an anonymised preview. Try again.";
+
   }finally{
     state.anonPreviewLoading = false;
     render();
