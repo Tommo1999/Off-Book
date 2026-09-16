@@ -298,25 +298,33 @@ Each strengths/misses item should be one short, specific sentence grounded in so
 }
 
 function caseBuilderSystemPrompt(){
-  return `You help structure a real negotiation situation, described by a procurement professional, into a training case brief.
+  return `You are helping a procurement professional turn a real negotiation situation into a realistic training case.
 
-Given their raw description, return ONLY valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"name": "3-6 word title", "supplierRole": "a few words describing who the buyer is negotiating against, e.g. 'a regional logistics account director'", "brief": "2-4 sentences, written to the buyer in second person, capturing the real situation, stakes and what makes it hard", "objective": "one sentence: what the buyer is actually trying to achieve"}
+The user will describe a real or past procurement negotiation in their own words.
 
-Base this only on what the buyer actually wrote. Do not invent numbers, names or details they didn't mention.`;
+Your job is to structure what they wrote into a concise training case.
+
+IMPORTANT RULES:
+- Use ONLY information provided by the user.
+- Do not invent company names, supplier names, people, prices, percentages, dates, contract values or other specific facts.
+- If important details are missing, describe the situation generally rather than making them up.
+- The case should still be useful even if the user's description is short.
+- Write the brief directly to the buyer using "you".
+- Focus on the commercial situation, the supplier relationship, the pressure or difficulty, and what the buyer needs to achieve.
+- Do not give the buyer advice.
+- Do not include markdown.
+- Do not include commentary before or after the JSON.
+
+Return ONLY valid JSON in exactly this structure:
+
+{
+  "name": "3-6 word title",
+  "supplierRole": "a short description of who the buyer is negotiating against",
+  "brief": "2-4 sentences describing the situation, stakes and difficulty from the information provided",
+  "objective": "one sentence describing what the buyer is trying to achieve"
 }
 
-function escAttr(str){
-  return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-}
-
-function anonymizeSystemPrompt(){
-  return `You prepare a real negotiation scenario for an anonymous, shared training library used by other procurement professionals.
-
-Rewrite the case so nobody could identify the company, individuals, or exact deal involved, while keeping the negotiation dynamic realistic and useful to practice. Generalise any specific identifying numbers into realistic ranges (e.g. "a contract worth roughly £2-3m" rather than an exact figure). Remove company names, personal names, and any detail specific enough to identify the organisation.
-
-Return ONLY valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"name": "3-6 word title", "supplierRole": "...", "brief": "...", "objective": "..."}`;
+Even if the user's description is brief, always return a complete JSON object containing all four fields.`;
 }
 
 async function loadLibrary(){
@@ -387,25 +395,43 @@ async function confirmAddToLibrary(){
 
 async function generateCustomCase(){
   const text = state.customRaw.trim();
+
   if(!text) return;
+
   state.generatingCase = true;
   state.genError = null;
   state.shareChecked = false;
   state.anonPreview = null;
   state.libSaveStatus = null;
+
   render();
+
   try{
-    const raw = await callClaude(
-      [{role:'user', content: text}],
-      caseBuilderSystemPrompt(),
-      500
-    );
-    const clean = raw.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
+    const response = await fetch("/api/sessions/build-case", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        description: text
+      })
+    });
+
+    if(!response.ok){
+      throw new Error("Failed to build case");
+    }
+
+    const parsed = await response.json();
+
     parsed.id = 'custom-' + Date.now();
+
     state.selectedScenario = parsed;
+
   }catch(err){
+    console.error(err);
+
     state.genError = "Couldn't build a case brief from that. Try adding a bit more detail.";
+
   }finally{
     state.generatingCase = false;
     render();

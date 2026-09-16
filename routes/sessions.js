@@ -306,4 +306,80 @@ router.get("/:sessionId", (req, res) => {
     res.json(session);
 });
 
+router.post("/build-case", async (req, res) => {
+    const { description } = req.body;
+
+    if (!description || !description.trim()) {
+        return res.status(400).json({
+            error: "Description is required"
+        });
+    }
+
+    try {
+        const response = await anthropic.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 500,
+            system: `
+You are helping a procurement professional turn a real negotiation situation into a realistic training case.
+
+The user will describe a real or past procurement negotiation in their own words.
+
+Your job is to structure what they wrote into a concise training case.
+
+IMPORTANT RULES:
+- Use ONLY information provided by the user.
+- Do not invent company names, supplier names, people, prices, percentages, dates, contract values or other specific facts.
+- If important details are missing, describe the situation generally rather than making them up.
+- The case should still be useful even if the user's description is short.
+- Write the brief directly to the buyer using "you".
+- Focus on the commercial situation, the supplier relationship, the pressure or difficulty, and what the buyer needs to achieve.
+- Do not give the buyer advice.
+- Do not include markdown.
+- Do not include commentary before or after the JSON.
+
+Return ONLY valid JSON in exactly this structure:
+
+{
+  "name": "3-6 word title",
+  "supplierRole": "a short description of who the buyer is negotiating against",
+  "brief": "2-4 sentences describing the situation, stakes and difficulty from the information provided",
+  "objective": "one sentence describing what the buyer is trying to achieve"
+}
+
+Even if the user's description is brief, always return a complete JSON object containing all four fields.
+`,
+            messages: [
+                {
+                    role: "user",
+                    content: description.trim()
+                }
+            ]
+        });
+
+        const textBlock = response.content.find(
+            block => block.type === "text"
+        );
+
+        if (!textBlock) {
+            throw new Error("Claude returned no text response");
+        }
+
+        const clean = textBlock.text
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+
+        const parsed = JSON.parse(clean);
+
+        res.json(parsed);
+
+    } catch (error) {
+        console.error("Case builder error:", error);
+
+        res.status(500).json({
+            error: "Couldn't build the case"
+        });
+    }
+});
+
 module.exports = router;
