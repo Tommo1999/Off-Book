@@ -135,6 +135,23 @@
   .coaching p{margin:0;font-size:14px;line-height:1.55;color:var(--paper);}
 
   .errbox{border:1px solid var(--risk);background:var(--panel);padding:14px 16px;color:var(--risk);font-size:13.5px;margin-top:16px;}
+
+ /* Avatar preview options */
+  .avatar-preview{border:1px solid var(--line);background:var(--panel);padding:22px 24px;margin-bottom:28px;}
+  .avatar-preview h3{font-size:16px;color:var(--paper);margin-bottom:4px;}
+  .avatar-preview .sub{font-size:13px;color:var(--slate);margin-bottom:18px;}
+  .opt-block{padding:16px 0;border-top:1px solid var(--line);}
+  .opt-block:first-of-type{border-top:none;}
+  .opt-label{font-size:12px;color:var(--brass);margin-bottom:10px;}
+  .avatar-row{display:flex;flex-direction:column;gap:12px;}
+  .avatar-msg{display:flex;gap:12px;align-items:flex-start;}
+  .avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Source Serif 4';font-size:14px;font-weight:600;}
+  .avatar-msg .who{font-size:12px;color:var(--brass-dim);margin-bottom:3px;}
+  .avatar-msg.coach .who{color:var(--agree);}
+  .avatar-msg .txt{font-size:14px;color:var(--paper-dim);line-height:1.5;max-width:44ch;}
+  .avatar-pick-btn{background:none;border:1px solid var(--line);color:var(--paper-dim);padding:8px 16px;font-family:'IBM Plex Sans';font-size:13px;cursor:pointer;margin-top:10px;}
+  .avatar-pick-btn:hover{border-color:var(--brass);color:var(--paper);}
+
 </style>
 </head>
 <body>
@@ -291,10 +308,19 @@ BUYER'S OBJECTIVE: ${scenario.objective}
 ${dealData ? `BUYER'S REAL NUMBERS GOING IN (private — the supplier only knows what the buyer actually said in the transcript): ${dealData}\nAssess whether, when, and how well the buyer used these numbers: did they lead with them, hold them back too long, disclose them at a moment that gained leverage, or fail to use them at all?` : ''}
 ${targetValue ? `BUYER'S REAL TARGET / WALKAWAY (private, not known to the supplier): ${targetValue}\nCRITICAL: first work out whether the final outcome in the transcript actually met or beat this target. If it did, that is a genuine win regardless of how the technique looked along the way — do not mark down an outcome that beat the buyer's own target just because the process wasn't textbook. Technique feedback and outcome quality are separate things; report both, but never let imperfect technique imply a bad outcome when the numbers say otherwise.` : ''}
 
-Assess only the buyer's turns in the transcript. Return ONLY valid JSON, with no markdown code fences and no preamble, in exactly this shape:
-{"score": <integer 1-10, reflecting technique and readiness for next time, NOT outcome quality>, "outcomeVsTarget": "${targetValue ? 'one sentence stating plainly whether the final outcome beat, met, or missed the buyer\'s stated target, with the numbers' : 'one sentence noting no target was provided, so outcome quality vs target could not be assessed'}", "strengths": ["...", "..."], "misses": ["...", "..."], "supplierTactics": "one or two sentences naming the tactics the supplier used", "coachingTip": "one concrete, specific thing to do differently next time"}
+SCORING RUBRIC — apply strictly, do not default to the middle of the range out of politeness:
+0 = the buyer's turns contain no actual negotiating content at all — a greeting, a one-word reply, an immediate agreement with no terms discussed, or ending before any position, question, or counter was made. This is not "engaged but weak," it is "did not negotiate," and must score 0 regardless of anything else.
+1-3 = engaged, but gave up control almost immediately — accepted the first position offered, asked no clarifying questions, made no counter-proposal.
+4-6 = made some real moves (asked questions, pushed back at least once, used some leverage) but left clear value or control on the table.
+7-9 = structured the negotiation well, used real leverage, held firm under pressure, only minor missed opportunities.
+10 = reserve for a genuinely expert-level performance with no meaningful technique gaps.
 
-Each strengths/misses item should be one short, specific sentence grounded in something the buyer actually said. 2-4 items each. Be honest, not encouraging for its own sake.`;
+If the buyer's combined turns amount to fewer than roughly 15 words of actual content, or contain no discernible negotiating move, this is an automatic 0 — do not find a token positive to justify a higher score, and say plainly in "strengths" that there is nothing to evaluate yet because no negotiation was attempted.
+
+Assess only the buyer's turns in the transcript. Return ONLY valid JSON, with no markdown code fences and no preamble, in exactly this shape:
+{"score": <integer 0-10, reflecting technique and readiness for next time per the rubric above, NOT outcome quality>, "outcomeVsTarget": "${targetValue ? 'one sentence stating plainly whether the final outcome beat, met, or missed the buyer\'s stated target, with the numbers' : 'one sentence noting no target was provided, so outcome quality vs target could not be assessed'}", "strengths": ["...", "..."], "misses": ["...", "..."], "supplierTactics": "one or two sentences naming the tactics the supplier used", "coachingTip": "one concrete, specific thing to do differently next time"}
+
+Each strengths/misses item should be one short, specific sentence grounded in something the buyer actually said. 2-4 items each, unless the score is 0, in which case strengths should simply state that nothing was attempted. Be honest, not encouraging for its own sake.`;
 }
 
 function caseBuilderSystemPrompt(){
