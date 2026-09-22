@@ -152,6 +152,77 @@
   .avatar-pick-btn{background:none;border:1px solid var(--line);color:var(--paper-dim);padding:8px 16px;font-family:'IBM Plex Sans';font-size:13px;cursor:pointer;margin-top:10px;}
   .avatar-pick-btn:hover{border-color:var(--brass);color:var(--paper);}
 
+/* Chat avatars */
+.chat-msg{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  max-width:92%;
+}
+
+.chat-msg.buyer{
+  align-self:flex-end;
+  flex-direction:row-reverse;
+  text-align:right;
+}
+
+.chat-msg.supplier{
+  align-self:flex-start;
+}
+
+.chat-avatar{
+  width:36px;
+  height:36px;
+  min-width:36px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Source Serif 4', serif;
+  font-size:15px;
+  font-weight:600;
+  border:1px solid var(--line);
+}
+
+.chat-avatar.supplier{
+  background:var(--panel-2);
+  color:var(--brass);
+}
+
+.chat-avatar.buyer{
+  background:var(--panel-2);
+  color:var(--slate);
+}
+
+.chat-avatar.coach{
+  background:var(--panel-2);
+  color:var(--agree);
+}
+
+.chat-content{
+  min-width:0;
+}
+
+.chat-who{
+  font-size:12px;
+  color:var(--brass-dim);
+  margin-bottom:4px;
+}
+
+.chat-msg.buyer .chat-who{
+  color:var(--slate);
+}
+
+.chat-bubble{
+  font-size:14.5px;
+  line-height:1.5;
+  color:var(--paper);
+}
+
+.chat-msg.buyer .chat-bubble{
+  color:var(--paper-dim);
+}
+
 </style>
 </head>
 <body>
@@ -255,13 +326,23 @@ let state = {
   libraryLoading: false,
   libraryError: null,
   messages: [],
-  loading: false,
-  debrief: null,
-  error: null
+sessionId: null,
+loading: false,
+debrief: null,
+error: null
 };
 
 function allScenariosFlat(){
   return Object.values(SCENARIOS).flatMap(g => g.items);
+}
+
+function escAttr(value){
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 async function callClaude(messages, system, maxTokens){
@@ -357,11 +438,22 @@ async function loadLibrary(){
   state.libraryLoading = true;
   state.libraryError = null;
   render();
+
   try{
-    const res = await window.storage.get('library-index', true);
-    state.libraryScenarios = res ? JSON.parse(res.value) : [];
+    const saved = localStorage.getItem('offbook-library');
+
+    state.libraryScenarios = saved ? JSON.parse(saved) : [];
+
+    // Make sure the stored data is an array
+    if(!Array.isArray(state.libraryScenarios)){
+      state.libraryScenarios = [];
+    }
+
   }catch(err){
+    console.error("Library load error:", err);
     state.libraryScenarios = [];
+    state.libraryError = "Could not load the library.";
+
   }finally{
     state.libraryLoading = false;
     render();
@@ -386,18 +478,22 @@ async function generateAnonPreview(scenario, rawText){
       })
     });
 
-    if(!response.ok){
-      throw new Error("Failed to anonymize case");
-    }
-
+    // Read the response even when the server returns an error
     const data = await response.json();
+
+    console.log("Anonymisation response:", data);
+
+    if(!response.ok){
+      throw new Error(data.error || "Failed to anonymize case");
+    }
 
     state.anonPreview = data;
 
   }catch(err){
-    console.error(err);
+    console.error("Anonymisation error:", err);
 
-    state.anonPreviewError = "Couldn't generate an anonymised preview. Try again.";
+    state.anonPreviewError =
+      err.message || "Couldn't generate an anonymised preview. Try again.";
 
   }finally{
     state.anonPreviewLoading = false;
@@ -408,11 +504,13 @@ async function generateAnonPreview(scenario, rawText){
 async function confirmAddToLibrary(){
   state.libSaveStatus = 'saving';
   render();
+
   try{
     const nameEl = document.getElementById('preview-name');
     const roleEl = document.getElementById('preview-role');
     const briefEl = document.getElementById('preview-brief');
     const objEl = document.getElementById('preview-objective');
+
     const finalEntry = {
       name: nameEl ? nameEl.value : state.anonPreview.name,
       supplierRole: roleEl ? roleEl.value : state.anonPreview.supplierRole,
@@ -420,20 +518,47 @@ async function confirmAddToLibrary(){
       objective: objEl ? objEl.value : state.anonPreview.objective,
       id: 'lib-' + Date.now()
     };
+
+    // Read existing library from browser storage
     let current = [];
+
     try{
-      const res = await window.storage.get('library-index', true);
-      current = res ? JSON.parse(res.value) : [];
-    }catch(e){ current = []; }
+      const saved = localStorage.getItem('offbook-library');
+      current = saved ? JSON.parse(saved) : [];
+
+      // Make sure the stored data is actually an array
+      if(!Array.isArray(current)){
+        current = [];
+      }
+
+    }catch(e){
+      console.error("Library read error:", e);
+      current = [];
+    }
+
+    // Add the new scenario to the beginning
     current.unshift(finalEntry);
-    if(current.length > 50) current = current.slice(0, 50);
-    await window.storage.set('library-index', JSON.stringify(current), true);
+
+    // Keep maximum of 50 scenarios
+    if(current.length > 50){
+      current = current.slice(0, 50);
+    }
+
+    // Save library
+    localStorage.setItem(
+      'offbook-library',
+      JSON.stringify(current)
+    );
+
     state.libSaveStatus = 'saved';
+
   }catch(err){
+    console.error("Library save error:", err);
     state.libSaveStatus = 'error';
+
   }finally{
     render();
-  }
+   }
 }
 
 async function generateCustomCase(){
@@ -593,12 +718,27 @@ function renderSetup(){
 
 function renderChat(){
   const s = state.selectedScenario;
-  const msgs = state.messages.map(m => `
-    <div class="msg ${m.role === 'user' ? 'buyer' : 'supplier'}">
-      <div class="who">${m.role === 'user' ? 'You' : s.supplierRole}</div>
-      <div class="bubble">${m.content}</div>
+ const msgs = state.messages.map(m => {
+  const isBuyer = m.role === 'user';
+
+  return `
+    <div class="chat-msg ${isBuyer ? 'buyer' : 'supplier'}">
+      <div class="chat-avatar ${isBuyer ? 'buyer' : 'supplier'}">
+        ${isBuyer ? 'Y' : 'S'}
+      </div>
+
+      <div class="chat-content">
+        <div class="chat-who">
+          ${isBuyer ? 'You' : s.supplierRole}
+        </div>
+
+        <div class="chat-bubble">
+          ${m.content}
+        </div>
+      </div>
     </div>
-  `).join('');
+  `;
+}).join('');
 
   return `
     <div class="toolbar">
@@ -665,8 +805,16 @@ function renderDebrief(){
       <p>${d.supplierTactics}</p>
     </div>
     <div class="coaching">
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+    <div class="chat-avatar coach">C</div>
+    <div>
+      <div style="font-size:12px;color:var(--agree);margin-bottom:5px;">
+        Coach
+      </div>
       <p>${d.coachingTip}</p>
     </div>
+  </div>
+</div>
     <button class="btn-ghost" id="restart-btn" style="margin-top:28px;">Run another scenario</button>
   `;
 }
@@ -742,7 +890,30 @@ function attachHandlers(){
 
   const restartBtn = document.getElementById('restart-btn');
   if(restartBtn) restartBtn.onclick = () => {
-    state = { screen:'setup', activeTab:'category', selectedScenario:null, playbook:'', dealData:'', targetValue:'', customRaw:'', generatingCase:false, genError:null, shareChecked:false, anonPreview:null, anonPreviewLoading:false, anonPreviewError:null, libSaveStatus:null, libraryScenarios:null, libraryLoading:false, libraryError:null, messages:[], loading:false, debrief:null, error:null };
+   state = {
+  screen:'setup',
+  activeTab:'category',
+  selectedScenario:null,
+  sessionId:null,
+  playbook:'',
+  dealData:'',
+  targetValue:'',
+  customRaw:'',
+  generatingCase:false,
+  genError:null,
+  shareChecked:false,
+  anonPreview:null,
+  anonPreviewLoading:false,
+  anonPreviewError:null,
+  libSaveStatus:null,
+  libraryScenarios:null,
+  libraryLoading:false,
+  libraryError:null,
+  messages:[],
+  loading:false,
+  debrief:null,
+  error:null
+};
     render();
   };
 

@@ -11,7 +11,70 @@ const anthropic = new Anthropic({
 // Temporary in-memory sessions
 const sessions = {};
 
-// Create a new negotiation session
+// Safely extract JSON from Claude responses
+function parseClaudeJson(text) {
+    if (!text || typeof text !== "string") {
+        throw new Error("Claude returned empty or invalid text");
+    }
+
+    const cleaned = text.trim();
+
+    // ---------------------------------------------------------
+    // 1. Try parsing the response directly first
+    // ---------------------------------------------------------
+    try {
+        return JSON.parse(cleaned);
+    } catch (error) {
+        // Continue below if Claude included extra formatting
+    }
+
+    // ---------------------------------------------------------
+    // 2. Look for JSON inside a Markdown code block
+    // ---------------------------------------------------------
+    const fencedMatch = cleaned.match(
+        /```(?:json)?\s*([\s\S]*?)\s*```/i
+    );
+
+    if (fencedMatch) {
+        const fencedJson = fencedMatch[1].trim();
+
+        try {
+            return JSON.parse(fencedJson);
+        } catch (error) {
+            // Continue below if the fenced content is also malformed
+        }
+    }
+
+    // ---------------------------------------------------------
+    // 3. Look for a JSON object surrounded by commentary
+    // ---------------------------------------------------------
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+
+    if (
+        firstBrace !== -1 &&
+        lastBrace !== -1 &&
+        lastBrace > firstBrace
+    ) {
+        const jsonText = cleaned.slice(firstBrace, lastBrace + 1);
+
+        try {
+            return JSON.parse(jsonText);
+        } catch (error) {
+            throw new Error(
+                `Claude returned text containing a JSON object, but it could not be parsed: ${error.message}`
+            );
+        }
+    }
+
+    throw new Error("No JSON object found in Claude response");
+}
+
+
+// ============================================================
+// CREATE A NEW NEGOTIATION SESSION
+// ============================================================
+
 router.post("/", (req, res) => {
     const { scenarioId, scenario: scenarioData } = req.body;
 
@@ -68,7 +131,11 @@ router.post("/", (req, res) => {
     res.status(201).json(session);
 });
 
-// Send a negotiation message
+
+// ============================================================
+// SEND A NEGOTIATION MESSAGE
+// ============================================================
+
 router.post("/:sessionId/messages", async (req, res) => {
     const { sessionId } = req.params;
     const { message } = req.body;
@@ -95,11 +162,12 @@ router.post("/:sessionId/messages", async (req, res) => {
     });
 
     // Ask Claude to respond as the supplier
-try {
-    const supplierResponse = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 500,
-    system: `
+    try {
+        const supplierResponse = await anthropic.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 500,
+
+            system: `
 You are the supplier in a realistic procurement negotiation.
 
 Stay fully in character as the supplier.
@@ -126,41 +194,46 @@ Rules:
 - Do not reveal hidden objectives or private information.
 - Keep responses conversational and reasonably concise.
 `,
-    messages: session.messages.map(m => ({
-        role: m.sender === "user" ? "user" : "assistant",
-        content: m.message
-    }))
-});
 
-const supplierText = supplierResponse.content.find(
-    block => block.type === "text"
-);
+            messages: session.messages.map(m => ({
+                role: m.sender === "user" ? "user" : "assistant",
+                content: m.message
+            }))
+        });
 
-if (!supplierText) {
-    throw new Error("Claude returned no text response");
-}
+        const supplierText = supplierResponse.content.find(
+            block => block.type === "text"
+        );
 
-session.messages.push({
-    sender: "supplier",
-    message: supplierText.text,
-    timestamp: new Date().toISOString()
-});
+        if (!supplierText) {
+            throw new Error("Claude returned no text response");
+        }
 
-} catch (error) {
-    console.error("Claude API error:", error);
+        session.messages.push({
+            sender: "supplier",
+            message: supplierText.text,
+            timestamp: new Date().toISOString()
+        });
 
-    return res.status(500).json({
-        error: "Supplier simulation failed"
+    } catch (error) {
+        console.error("Claude API error:", error);
+
+        return res.status(500).json({
+            error: "Supplier simulation failed"
+        });
+    }
+
+    res.json({
+        sessionId: session.id,
+        messages: session.messages
     });
-}
-
-res.json({
-    sessionId: session.id,
-    messages: session.messages
-});
 });
 
-// Generate negotiation debrief
+
+// ============================================================
+// GENERATE NEGOTIATION DEBRIEF
+// ============================================================
+
 router.post("/:sessionId/debrief", async (req, res) => {
     const { sessionId } = req.params;
 
@@ -182,6 +255,7 @@ router.post("/:sessionId/debrief", async (req, res) => {
         const debriefResponse = await anthropic.messages.create({
             model: "claude-sonnet-4-6",
             max_tokens: 1200,
+
             system: `
 You are an expert procurement negotiation coach.
 
@@ -206,30 +280,40 @@ Provide a useful, honest and practical procurement debrief.
 Return ONLY valid JSON in exactly this structure:
 
 {
-  "score": 1,
+  "score": 0,
   "summary": "Short overall assessment.",
-  "strengths": [
-    "Strength 1",
-    "Strength 2",
-    "Strength 3"
-  ],
-  "misses": [
-    "Missed opportunity 1",
-    "Missed opportunity 2",
-    "Missed opportunity 3"
-  ],
-  "supplierTactics": [
-    "Supplier tactic 1",
-    "Supplier tactic 2",
-    "Supplier tactic 3"
-  ],
+  "strengths": [],
+  "misses": [],
+  "supplierTactics": [],
   "coachingTip": "The single most useful thing the buyer could improve next time."
 }
 
-Scoring:
-- Score the BUYER'S negotiation technique, not whether they achieved a particular price.
-- 1 = very weak negotiation technique.
+IMPORTANT OUTPUT RULES:
+- Your response must contain ONLY the JSON object.
+- Do not provide an explanation before the JSON.
+- Do not provide an explanation after the JSON.
+- Do not use Markdown code fences.
+- The first character of your response must be {.
+- The final character of your response must be }.
+
+- The score may range from 0 to 10.
+- 0 = no meaningful negotiation took place, or there was insufficient buyer participation to assess negotiation technique.
+- 1-2 = very weak negotiation technique.
+- 3-4 = weak negotiation technique with significant areas for improvement.
+- 5-6 = developing or mixed negotiation technique.
+- 7-8 = good negotiation technique.
+- 9 = very strong negotiation technique.
 - 10 = excellent negotiation technique.
+- If the buyer only sends a greeting such as "hi", "hello", "thanks", or another message that does not constitute a negotiation attempt, score 0.
+- Do not give the buyer a non-zero score merely because they started the conversation.
+- For a score of 0, do not invent strengths or supplier tactics simply to fill the arrays. Use an empty array when there is genuinely nothing meaningful to assess.
+
+IMPORTANT:
+- If the buyer only sends a greeting such as "hi", "hello", "thanks", or another message that does not constitute a negotiation attempt, score 0.
+- If there are only one or two very short messages and no meaningful negotiation occurs, consider whether 0 is more appropriate than scoring the limited interaction.
+- Do not give the buyer a non-zero score merely because they started the conversation.
+- A score of 0 means there was not enough negotiation to assess; it is not a judgement that the buyer is incapable of negotiating.
+- Once meaningful negotiation has taken place, score the buyer based on the quality of their actual negotiation technique.
 - Consider preparation, questioning, leverage, information control, trading concessions, handling supplier pressure, and clarity.
 - Do not reward the buyer simply because the supplier was friendly.
 - Do not penalise the buyer simply because the supplier refused a request.
@@ -237,11 +321,15 @@ Scoring:
 Keep the feedback specific to what actually happened in the negotiation.
 Do not invent actions that the buyer did not take.
 `,
+
             messages: [
                 {
                     role: "user",
                     content: session.messages
-                        .map(m => `${m.sender.toUpperCase()}: ${m.message}`)
+                        .map(
+                            m =>
+                                `${m.sender.toUpperCase()}: ${m.message}`
+                        )
                         .join("\n\n")
                 }
             ]
@@ -257,30 +345,32 @@ Do not invent actions that the buyer did not take.
 
         let debrief;
 
-try {
-    const cleanDebrief = debriefText.text
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
+        try {
+            debrief = parseClaudeJson(debriefText.text);
+        } catch (parseError) {
+            console.error(
+                "Debrief JSON parse error:",
+                parseError
+            );
 
-    debrief = JSON.parse(cleanDebrief);
-} catch (parseError) {
-    console.error("Debrief JSON parse error:", parseError);
-    console.error("Claude returned:", debriefText.text);
+            console.error(
+                "Claude returned:",
+                debriefText.text
+            );
 
-    return res.status(500).json({
-        error: "Debrief returned invalid data"
-    });
-}
+            return res.status(500).json({
+                error: "Debrief returned invalid data"
+            });
+        }
 
-session.debrief = debrief;
-session.status = "completed";
-session.completedAt = new Date().toISOString();
+        session.debrief = debrief;
+        session.status = "completed";
+        session.completedAt = new Date().toISOString();
 
-res.json({
-    sessionId: session.id,
-    debrief: debrief
-});
+        res.json({
+            sessionId: session.id,
+            debrief: debrief
+        });
 
     } catch (error) {
         console.error("Claude debrief error:", error);
@@ -291,7 +381,11 @@ res.json({
     }
 });
 
-// Get a session
+
+// ============================================================
+// GET A SESSION
+// ============================================================
+
 router.get("/:sessionId", (req, res) => {
     const { sessionId } = req.params;
 
@@ -306,6 +400,11 @@ router.get("/:sessionId", (req, res) => {
     res.json(session);
 });
 
+
+// ============================================================
+// BUILD CASE FROM USER DESCRIPTION
+// ============================================================
+
 router.post("/build-case", async (req, res) => {
     const { description } = req.body;
 
@@ -319,6 +418,7 @@ router.post("/build-case", async (req, res) => {
         const response = await anthropic.messages.create({
             model: "claude-sonnet-4-6",
             max_tokens: 500,
+
             system: `
 You are helping a procurement professional turn a real negotiation situation into a realistic training case.
 
@@ -348,6 +448,7 @@ Return ONLY valid JSON in exactly this structure:
 
 Even if the user's description is brief, always return a complete JSON object containing all four fields.
 `,
+
             messages: [
                 {
                     role: "user",
@@ -364,12 +465,7 @@ Even if the user's description is brief, always return a complete JSON object co
             throw new Error("Claude returned no text response");
         }
 
-        const clean = textBlock.text
-            .replace(/```json/g, "")
-            .replace(/```/g, "")
-            .trim();
-
-        const parsed = JSON.parse(clean);
+        const parsed = parseClaudeJson(textBlock.text);
 
         res.json(parsed);
 
@@ -381,6 +477,11 @@ Even if the user's description is brief, always return a complete JSON object co
         });
     }
 });
+
+
+// ============================================================
+// ANONYMIZE CASE
+// ============================================================
 
 router.post("/anonymize-case", async (req, res) => {
     const { rawText, scenario } = req.body;
@@ -395,6 +496,7 @@ router.post("/anonymize-case", async (req, res) => {
         const response = await anthropic.messages.create({
             model: "claude-sonnet-4-6",
             max_tokens: 500,
+
             system: `
 You prepare a real negotiation scenario for an anonymous, shared training library used by other procurement professionals.
 
@@ -421,6 +523,7 @@ Return ONLY valid JSON in exactly this structure:
   "objective": "one sentence describing what the buyer is trying to achieve"
 }
 `,
+
             messages: [
                 {
                     role: "user",
@@ -445,12 +548,7 @@ ${JSON.stringify(scenario)}
             throw new Error("Claude returned no text response");
         }
 
-        const clean = textBlock.text
-            .replace(/```json/g, "")
-            .replace(/```/g, "")
-            .trim();
-
-        const parsed = JSON.parse(clean);
+        const parsed = parseClaudeJson(textBlock.text);
 
         res.json(parsed);
 
