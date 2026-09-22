@@ -8,66 +8,264 @@ const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY
 });
 
-// Temporary in-memory sessions
+
+// ============================================================
+// PRICING
+// Claude Sonnet 4.6
+// $3 per million input tokens
+// $15 per million output tokens
+// ============================================================
+
+const INPUT_COST_PER_MILLION = 3;
+const OUTPUT_COST_PER_MILLION = 15;
+
+
+// ============================================================
+// TEMPORARY IN-MEMORY STORAGE
+// ============================================================
+
 const sessions = {};
 
-// Safely extract JSON from Claude responses
+
+// Overall API usage for this server run
+const usageTotals = {
+    totalRequests: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalCostUSD: 0,
+
+    byType: {
+        negotiation: {
+            requests: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            costUSD: 0
+        },
+
+        debrief: {
+            requests: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            costUSD: 0
+        },
+
+        caseBuilder: {
+            requests: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            costUSD: 0
+        },
+
+        anonymisation: {
+            requests: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            costUSD: 0
+        }
+    }
+};
+
+
+// ============================================================
+// RECORD CLAUDE API USAGE
+// ============================================================
+
+function recordUsage(response, type, session = null) {
+
+    const inputTokens =
+        response.usage?.input_tokens || 0;
+
+    const outputTokens =
+        response.usage?.output_tokens || 0;
+
+    const inputCost =
+        (inputTokens / 1_000_000) *
+        INPUT_COST_PER_MILLION;
+
+    const outputCost =
+        (outputTokens / 1_000_000) *
+        OUTPUT_COST_PER_MILLION;
+
+    const costUSD =
+        inputCost + outputCost;
+
+
+    // --------------------------------------------------------
+    // Global totals
+    // --------------------------------------------------------
+
+    usageTotals.totalRequests += 1;
+
+    usageTotals.totalInputTokens += inputTokens;
+
+    usageTotals.totalOutputTokens += outputTokens;
+
+    usageTotals.totalCostUSD += costUSD;
+
+
+    // --------------------------------------------------------
+    // Totals by request type
+    // --------------------------------------------------------
+
+    if (usageTotals.byType[type]) {
+
+        usageTotals.byType[type].requests += 1;
+
+        usageTotals.byType[type].inputTokens += inputTokens;
+
+        usageTotals.byType[type].outputTokens += outputTokens;
+
+        usageTotals.byType[type].costUSD += costUSD;
+    }
+
+
+    // --------------------------------------------------------
+    // Session-specific usage
+    // --------------------------------------------------------
+
+    if (session) {
+
+        if (!session.usage) {
+
+            session.usage = {
+                requests: 0,
+                inputTokens: 0,
+                outputTokens: 0,
+                costUSD: 0,
+
+                byType: {
+                    negotiation: {
+                        requests: 0,
+                        inputTokens: 0,
+                        outputTokens: 0,
+                        costUSD: 0
+                    },
+
+                    debrief: {
+                        requests: 0,
+                        inputTokens: 0,
+                        outputTokens: 0,
+                        costUSD: 0
+                    }
+                }
+            };
+        }
+
+
+        session.usage.requests += 1;
+
+        session.usage.inputTokens += inputTokens;
+
+        session.usage.outputTokens += outputTokens;
+
+        session.usage.costUSD += costUSD;
+
+
+        if (session.usage.byType[type]) {
+
+            session.usage.byType[type].requests += 1;
+
+            session.usage.byType[type].inputTokens += inputTokens;
+
+            session.usage.byType[type].outputTokens += outputTokens;
+
+            session.usage.byType[type].costUSD += costUSD;
+        }
+    }
+
+
+    console.log(
+        `[USAGE] ${type} | ` +
+        `Input: ${inputTokens} | ` +
+        `Output: ${outputTokens} | ` +
+        `Cost: $${costUSD.toFixed(6)}`
+    );
+}
+
+
+// ============================================================
+// SAFELY EXTRACT JSON FROM CLAUDE RESPONSES
+// ============================================================
+
 function parseClaudeJson(text) {
+
     if (!text || typeof text !== "string") {
         throw new Error("Claude returned empty or invalid text");
     }
 
     const cleaned = text.trim();
 
+
     // ---------------------------------------------------------
     // 1. Try parsing the response directly first
     // ---------------------------------------------------------
+
     try {
         return JSON.parse(cleaned);
     } catch (error) {
-        // Continue below if Claude included extra formatting
+        // Continue below
     }
+
 
     // ---------------------------------------------------------
     // 2. Look for JSON inside a Markdown code block
     // ---------------------------------------------------------
+
     const fencedMatch = cleaned.match(
         /```(?:json)?\s*([\s\S]*?)\s*```/i
     );
 
     if (fencedMatch) {
-        const fencedJson = fencedMatch[1].trim();
+
+        const fencedJson =
+            fencedMatch[1].trim();
 
         try {
             return JSON.parse(fencedJson);
         } catch (error) {
-            // Continue below if the fenced content is also malformed
+            // Continue below
         }
     }
+
 
     // ---------------------------------------------------------
     // 3. Look for a JSON object surrounded by commentary
     // ---------------------------------------------------------
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace = cleaned.lastIndexOf("}");
+
+    const firstBrace =
+        cleaned.indexOf("{");
+
+    const lastBrace =
+        cleaned.lastIndexOf("}");
+
 
     if (
         firstBrace !== -1 &&
         lastBrace !== -1 &&
         lastBrace > firstBrace
     ) {
-        const jsonText = cleaned.slice(firstBrace, lastBrace + 1);
+
+        const jsonText =
+            cleaned.slice(
+                firstBrace,
+                lastBrace + 1
+            );
 
         try {
             return JSON.parse(jsonText);
+
         } catch (error) {
+
             throw new Error(
                 `Claude returned text containing a JSON object, but it could not be parsed: ${error.message}`
             );
         }
     }
 
-    throw new Error("No JSON object found in Claude response");
+
+    throw new Error(
+        "No JSON object found in Claude response"
+    );
 }
 
 
@@ -76,12 +274,18 @@ function parseClaudeJson(text) {
 // ============================================================
 
 router.post("/", (req, res) => {
-    const { scenarioId, scenario: scenarioData } = req.body;
+
+    const {
+        scenarioId,
+        scenario: scenarioData
+    } = req.body;
 
     let scenario;
 
-    // If the frontend sends a complete scenario, use it
+
+    // If frontend sends a complete scenario
     if (scenarioData) {
+
         if (
             !scenarioData.id ||
             !scenarioData.name ||
@@ -89,6 +293,7 @@ router.post("/", (req, res) => {
             !scenarioData.brief ||
             !scenarioData.objective
         ) {
+
             return res.status(400).json({
                 error: "Incomplete scenario data"
             });
@@ -97,36 +302,88 @@ router.post("/", (req, res) => {
         scenario = scenarioData;
     }
 
-    // Otherwise, use one of the backend's built-in scenarios
+
+    // Otherwise use built-in scenario
     else {
+
         if (!scenarioId) {
+
             return res.status(400).json({
                 error: "scenarioId is required"
             });
         }
 
         scenario = scenarios.find(
-            scenario => scenario.id === parseInt(scenarioId)
+            scenario =>
+                scenario.id === parseInt(scenarioId)
         );
 
+
         if (!scenario) {
+
             return res.status(404).json({
                 error: "Scenario not found"
             });
         }
     }
 
+
     const session = {
+
         id: Date.now().toString(),
-        scenarioId: scenario.id,
-        scenarioTitle: scenario.name || scenario.title,
-        scenario: scenario,
-        status: "active",
-        startedAt: new Date().toISOString(),
-        messages: []
+
+        scenarioId:
+            scenario.id,
+
+        scenarioTitle:
+            scenario.name ||
+            scenario.title,
+
+        scenario:
+
+            scenario,
+
+        status:
+            "active",
+
+        startedAt:
+            new Date().toISOString(),
+
+        messages: [],
+
+        usage: {
+
+            requests: 0,
+
+            inputTokens: 0,
+
+            outputTokens: 0,
+
+            costUSD: 0,
+
+            byType: {
+
+                negotiation: {
+                    requests: 0,
+                    inputTokens: 0,
+                    outputTokens: 0,
+                    costUSD: 0
+                },
+
+                debrief: {
+                    requests: 0,
+                    inputTokens: 0,
+                    outputTokens: 0,
+                    costUSD: 0
+                }
+            }
+        }
     };
 
-    sessions[session.id] = session;
+
+    sessions[session.id] =
+        session;
+
 
     res.status(201).json(session);
 });
@@ -136,38 +393,69 @@ router.post("/", (req, res) => {
 // SEND A NEGOTIATION MESSAGE
 // ============================================================
 
-router.post("/:sessionId/messages", async (req, res) => {
-    const { sessionId } = req.params;
-    const { message } = req.body;
+router.post(
+    "/:sessionId/messages",
+    async (req, res) => {
 
-    const session = sessions[sessionId];
+        const {
+            sessionId
+        } = req.params;
 
-    if (!session) {
-        return res.status(404).json({
-            error: "Session not found"
+        const {
+            message
+        } = req.body;
+
+
+        const session =
+            sessions[sessionId];
+
+
+        if (!session) {
+
+            return res.status(404).json({
+                error: "Session not found"
+            });
+        }
+
+
+        if (
+            !message ||
+            !message.trim()
+        ) {
+
+            return res.status(400).json({
+                error: "Message is required"
+            });
+        }
+
+
+        // Add user's message
+        session.messages.push({
+
+            sender: "user",
+
+            message:
+                message.trim(),
+
+            timestamp:
+                new Date().toISOString()
         });
-    }
 
-    if (!message || !message.trim()) {
-        return res.status(400).json({
-            error: "Message is required"
-        });
-    }
 
-    // Add user's message
-    session.messages.push({
-        sender: "user",
-        message: message.trim(),
-        timestamp: new Date().toISOString()
-    });
+        // Ask Claude to respond as supplier
 
-    // Ask Claude to respond as the supplier
-    try {
-        const supplierResponse = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 500,
+        try {
 
-            system: `
+            const supplierResponse =
+                await anthropic.messages.create({
+
+                    model:
+                        "claude-sonnet-4-6",
+
+                    max_tokens:
+                        500,
+
+                    system: `
 You are the supplier in a realistic procurement negotiation.
 
 Stay fully in character as the supplier.
@@ -195,68 +483,133 @@ Rules:
 - Keep responses conversational and reasonably concise.
 `,
 
-            messages: session.messages.map(m => ({
-                role: m.sender === "user" ? "user" : "assistant",
-                content: m.message
-            }))
-        });
+                    messages:
+                        session.messages.map(
+                            m => ({
 
-        const supplierText = supplierResponse.content.find(
-            block => block.type === "text"
-        );
+                                role:
+                                    m.sender === "user"
+                                        ? "user"
+                                        : "assistant",
 
-        if (!supplierText) {
-            throw new Error("Claude returned no text response");
+                                content:
+                                    m.message
+                            })
+                        )
+                });
+
+
+            // Record API usage
+            recordUsage(
+                supplierResponse,
+                "negotiation",
+                session
+            );
+
+
+            const supplierText =
+                supplierResponse.content.find(
+                    block =>
+                        block.type === "text"
+                );
+
+
+            if (!supplierText) {
+
+                throw new Error(
+                    "Claude returned no text response"
+                );
+            }
+
+
+            session.messages.push({
+
+                sender:
+                    "supplier",
+
+                message:
+                    supplierText.text,
+
+                timestamp:
+                    new Date().toISOString()
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "Claude API error:",
+                error
+            );
+
+            return res.status(500).json({
+                error:
+                    "Supplier simulation failed"
+            });
         }
 
-        session.messages.push({
-            sender: "supplier",
-            message: supplierText.text,
-            timestamp: new Date().toISOString()
-        });
 
-    } catch (error) {
-        console.error("Claude API error:", error);
+        res.json({
 
-        return res.status(500).json({
-            error: "Supplier simulation failed"
+            sessionId:
+                session.id,
+
+            messages:
+                session.messages
         });
     }
-
-    res.json({
-        sessionId: session.id,
-        messages: session.messages
-    });
-});
+);
 
 
 // ============================================================
 // GENERATE NEGOTIATION DEBRIEF
 // ============================================================
 
-router.post("/:sessionId/debrief", async (req, res) => {
-    const { sessionId } = req.params;
+router.post(
+    "/:sessionId/debrief",
+    async (req, res) => {
 
-    const session = sessions[sessionId];
+        const {
+            sessionId
+        } = req.params;
 
-    if (!session) {
-        return res.status(404).json({
-            error: "Session not found"
-        });
-    }
 
-    if (!session.messages || session.messages.length === 0) {
-        return res.status(400).json({
-            error: "No negotiation messages to debrief"
-        });
-    }
+        const session =
+            sessions[sessionId];
 
-    try {
-        const debriefResponse = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 1200,
 
-            system: `
+        if (!session) {
+
+            return res.status(404).json({
+                error: "Session not found"
+            });
+        }
+
+
+        if (
+            !session.messages ||
+            session.messages.length === 0
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "No negotiation messages to debrief"
+            });
+        }
+
+
+        try {
+
+            const debriefResponse =
+                await anthropic.messages.create({
+
+                    model:
+                        "claude-sonnet-4-6",
+
+                    max_tokens:
+                        1200,
+
+                    system: `
 You are an expert procurement negotiation coach.
 
 Analyse the completed negotiation between a buyer and supplier.
@@ -322,63 +675,277 @@ Keep the feedback specific to what actually happened in the negotiation.
 Do not invent actions that the buyer did not take.
 `,
 
-            messages: [
-                {
-                    role: "user",
-                    content: session.messages
-                        .map(
-                            m =>
-                                `${m.sender.toUpperCase()}: ${m.message}`
-                        )
-                        .join("\n\n")
-                }
-            ]
-        });
+                    messages: [
 
-        const debriefText = debriefResponse.content.find(
-            block => block.type === "text"
-        );
+                        {
+                            role:
+                                "user",
 
-        if (!debriefText) {
-            throw new Error("Claude returned no debrief text");
-        }
+                            content:
+                                session.messages
+                                    .map(
+                                        m =>
+                                            `${m.sender.toUpperCase()}: ${m.message}`
+                                    )
+                                    .join("\n\n")
+                        }
+                    ]
+                });
 
-        let debrief;
 
-        try {
-            debrief = parseClaudeJson(debriefText.text);
-        } catch (parseError) {
-            console.error(
-                "Debrief JSON parse error:",
-                parseError
+            // Record API usage
+            recordUsage(
+                debriefResponse,
+                "debrief",
+                session
             );
 
+
+            const debriefText =
+                debriefResponse.content.find(
+                    block =>
+                        block.type === "text"
+                );
+
+
+            if (!debriefText) {
+
+                throw new Error(
+                    "Claude returned no debrief text"
+                );
+            }
+
+
+            let debrief;
+
+
+            try {
+
+                debrief =
+                    parseClaudeJson(
+                        debriefText.text
+                    );
+
+            } catch (parseError) {
+
+                console.error(
+                    "Debrief JSON parse error:",
+                    parseError
+                );
+
+                console.error(
+                    "Claude returned:",
+                    debriefText.text
+                );
+
+                return res.status(500).json({
+                    error:
+                        "Debrief returned invalid data"
+                });
+            }
+
+
+            session.debrief =
+                debrief;
+
+            session.status =
+                "completed";
+
+            session.completedAt =
+                new Date().toISOString();
+
+
+            res.json({
+
+                sessionId:
+                    session.id,
+
+                debrief:
+                    debrief
+            });
+
+
+        } catch (error) {
+
             console.error(
-                "Claude returned:",
-                debriefText.text
+                "Claude debrief error:",
+                error
             );
 
-            return res.status(500).json({
-                error: "Debrief returned invalid data"
+            res.status(500).json({
+                error:
+                    "Debrief generation failed"
             });
         }
-
-        session.debrief = debrief;
-        session.status = "completed";
-        session.completedAt = new Date().toISOString();
-
-        res.json({
-            sessionId: session.id,
-            debrief: debrief
-        });
-
-    } catch (error) {
-        console.error("Claude debrief error:", error);
-
-        res.status(500).json({
-            error: "Debrief generation failed"
-        });
     }
+);
+
+
+// ============================================================
+// USAGE / COST REPORT
+// ============================================================
+//
+// IMPORTANT:
+// This is intended for your beta/admin use.
+// It is protected by ADMIN_USAGE_KEY if you set one
+// in your .env file.
+//
+// ============================================================
+
+router.get("/usage", (req, res) => {
+
+    const adminKey =
+        process.env.ADMIN_USAGE_KEY;
+
+
+    if (adminKey) {
+
+        const suppliedKey =
+            req.headers["x-admin-key"];
+
+
+        if (
+            !suppliedKey ||
+            suppliedKey !== adminKey
+        ) {
+
+            return res.status(401).json({
+                error:
+                    "Unauthorised"
+            });
+        }
+    }
+
+
+    const sessionList =
+        Object.values(sessions);
+
+
+    const completedSessions =
+        sessionList.filter(
+            session =>
+                session.status === "completed"
+        );
+
+
+    const totalSessionCost =
+        sessionList.reduce(
+            (total, session) =>
+                total +
+                (session.usage?.costUSD || 0),
+            0
+        );
+
+
+    const averageCostPerCompletedSession =
+        completedSessions.length > 0
+            ? completedSessions.reduce(
+                (total, session) =>
+                    total +
+                    (session.usage?.costUSD || 0),
+                0
+            ) / completedSessions.length
+            : 0;
+
+
+    res.json({
+
+        pricing: {
+
+            model:
+                "claude-sonnet-4-6",
+
+            input:
+                "$3 per million tokens",
+
+            output:
+                "$15 per million tokens"
+        },
+
+
+        sessions: {
+
+            total:
+                sessionList.length,
+
+            completed:
+                completedSessions.length,
+
+            active:
+                sessionList.filter(
+                    session =>
+                        session.status === "active"
+                ).length
+        },
+
+
+        apiUsage: {
+
+            totalRequests:
+                usageTotals.totalRequests,
+
+            totalInputTokens:
+                usageTotals.totalInputTokens,
+
+            totalOutputTokens:
+                usageTotals.totalOutputTokens,
+
+            totalCostUSD:
+                Number(
+                    usageTotals.totalCostUSD.toFixed(6)
+                )
+        },
+
+
+        averageCostPerCompletedSessionUSD:
+            Number(
+                averageCostPerCompletedSession
+                    .toFixed(6)
+            ),
+
+
+        byType:
+            usageTotals.byType,
+
+
+        sessions:
+            sessionList.map(
+                session => ({
+
+                    id:
+                        session.id,
+
+                    scenario:
+                        session.scenarioTitle,
+
+                    status:
+                        session.status,
+
+                    startedAt:
+                        session.startedAt,
+
+                    completedAt:
+                        session.completedAt || null,
+
+                    requests:
+                        session.usage?.requests || 0,
+
+                    inputTokens:
+                        session.usage?.inputTokens || 0,
+
+                    outputTokens:
+                        session.usage?.outputTokens || 0,
+
+                    costUSD:
+                        Number(
+                            (
+                                session.usage?.costUSD ||
+                                0
+                            ).toFixed(6)
+                        )
+                })
+            )
+    });
 });
 
 
@@ -386,40 +953,70 @@ Do not invent actions that the buyer did not take.
 // GET A SESSION
 // ============================================================
 
-router.get("/:sessionId", (req, res) => {
-    const { sessionId } = req.params;
+router.get(
+    "/:sessionId",
+    (req, res) => {
 
-    const session = sessions[sessionId];
+        const {
+            sessionId
+        } = req.params;
 
-    if (!session) {
-        return res.status(404).json({
-            error: "Session not found"
-        });
+
+        const session =
+            sessions[sessionId];
+
+
+        if (!session) {
+
+            return res.status(404).json({
+                error:
+                    "Session not found"
+            });
+        }
+
+
+        res.json(session);
     }
-
-    res.json(session);
-});
+);
 
 
 // ============================================================
 // BUILD CASE FROM USER DESCRIPTION
 // ============================================================
 
-router.post("/build-case", async (req, res) => {
-    const { description } = req.body;
+router.post(
+    "/build-case",
+    async (req, res) => {
 
-    if (!description || !description.trim()) {
-        return res.status(400).json({
-            error: "Description is required"
-        });
-    }
+        const {
+            description
+        } = req.body;
 
-    try {
-        const response = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 500,
 
-            system: `
+        if (
+            !description ||
+            !description.trim()
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Description is required"
+            });
+        }
+
+
+        try {
+
+            const response =
+                await anthropic.messages.create({
+
+                    model:
+                        "claude-sonnet-4-6",
+
+                    max_tokens:
+                        500,
+
+                    system: `
 You are helping a procurement professional turn a real negotiation situation into a realistic training case.
 
 The user will describe a real or past procurement negotiation in their own words.
@@ -449,55 +1046,104 @@ Return ONLY valid JSON in exactly this structure:
 Even if the user's description is brief, always return a complete JSON object containing all four fields.
 `,
 
-            messages: [
-                {
-                    role: "user",
-                    content: description.trim()
-                }
-            ]
-        });
+                    messages: [
 
-        const textBlock = response.content.find(
-            block => block.type === "text"
-        );
+                        {
+                            role:
+                                "user",
 
-        if (!textBlock) {
-            throw new Error("Claude returned no text response");
+                            content:
+                                description.trim()
+                        }
+                    ]
+                });
+
+
+            // Record usage
+            recordUsage(
+                response,
+                "caseBuilder"
+            );
+
+
+            const textBlock =
+                response.content.find(
+                    block =>
+                        block.type === "text"
+                );
+
+
+            if (!textBlock) {
+
+                throw new Error(
+                    "Claude returned no text response"
+                );
+            }
+
+
+            const parsed =
+                parseClaudeJson(
+                    textBlock.text
+                );
+
+
+            res.json(parsed);
+
+
+        } catch (error) {
+
+            console.error(
+                "Case builder error:",
+                error
+            );
+
+            res.status(500).json({
+                error:
+                    "Couldn't build the case"
+            });
         }
-
-        const parsed = parseClaudeJson(textBlock.text);
-
-        res.json(parsed);
-
-    } catch (error) {
-        console.error("Case builder error:", error);
-
-        res.status(500).json({
-            error: "Couldn't build the case"
-        });
     }
-});
+);
 
 
 // ============================================================
 // ANONYMIZE CASE
 // ============================================================
 
-router.post("/anonymize-case", async (req, res) => {
-    const { rawText, scenario } = req.body;
+router.post(
+    "/anonymize-case",
+    async (req, res) => {
 
-    if (!rawText || !scenario) {
-        return res.status(400).json({
-            error: "Raw text and scenario are required"
-        });
-    }
+        const {
+            rawText,
+            scenario
+        } = req.body;
 
-    try {
-        const response = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 500,
 
-            system: `
+        if (
+            !rawText ||
+            !scenario
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Raw text and scenario are required"
+            });
+        }
+
+
+        try {
+
+            const response =
+                await anthropic.messages.create({
+
+                    model:
+                        "claude-sonnet-4-6",
+
+                    max_tokens:
+                        500,
+
+                    system: `
 You prepare a real negotiation scenario for an anonymous, shared training library used by other procurement professionals.
 
 Rewrite the case so nobody could identify the company, individuals, or exact deal involved, while keeping the negotiation dynamic realistic and useful to practice.
@@ -524,10 +1170,13 @@ Return ONLY valid JSON in exactly this structure:
 }
 `,
 
-            messages: [
-                {
-                    role: "user",
-                    content: `
+                    messages: [
+
+                        {
+                            role:
+                                "user",
+
+                            content: `
 Buyer's raw description:
 
 ${rawText}
@@ -536,29 +1185,56 @@ Structured case brief:
 
 ${JSON.stringify(scenario)}
 `
-                }
-            ]
-        });
+                        }
+                    ]
+                });
 
-        const textBlock = response.content.find(
-            block => block.type === "text"
-        );
 
-        if (!textBlock) {
-            throw new Error("Claude returned no text response");
+            // Record usage
+            recordUsage(
+                response,
+                "anonymisation"
+            );
+
+
+            const textBlock =
+                response.content.find(
+                    block =>
+                        block.type === "text"
+                );
+
+
+            if (!textBlock) {
+
+                throw new Error(
+                    "Claude returned no text response"
+                );
+            }
+
+
+            const parsed =
+                parseClaudeJson(
+                    textBlock.text
+                );
+
+
+            res.json(parsed);
+
+
+        } catch (error) {
+
+            console.error(
+                "Anonymisation error:",
+                error
+            );
+
+            res.status(500).json({
+                error:
+                    "Couldn't anonymise case"
+            });
         }
-
-        const parsed = parseClaudeJson(textBlock.text);
-
-        res.json(parsed);
-
-    } catch (error) {
-        console.error("Anonymisation error:", error);
-
-        res.status(500).json({
-            error: "Couldn't anonymise case"
-        });
     }
-});
+);
+
 
 module.exports = router;
