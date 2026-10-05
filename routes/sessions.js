@@ -635,11 +635,37 @@ Return ONLY valid JSON in exactly this structure:
 {
   "score": 0,
   "summary": "Short overall assessment.",
-  "strengths": [],
-  "misses": [],
-  "supplierTactics": [],
+  "commercial": [],
+  "tactics": [],
+  "risk": [],
   "coachingTip": "The single most useful thing the buyer could improve next time."
 }
+
+
+IMPORTANT FEEDBACK STRUCTURE:
+
+- "commercial" should focus only on the commercial side of the negotiation.
+  Consider the buyer's target, value, price, concessions, trade-offs,
+  leverage and overall commercial outcome.
+
+- "tactics" should focus only on negotiation technique.
+  Consider questioning, preparation, information control, anchoring,
+  leverage, trading concessions, handling supplier pressure and clarity.
+  Also identify the supplier tactics used against the buyer.
+
+- "risk" should focus only on risks or potential problems.
+  Consider commercial risk, supplier leverage, contractual exposure,
+  assumptions, missing information and commitments made by the buyer.
+
+- Keep each point specific to what actually happened.
+- Do not repeat the same point across multiple categories.
+- Use short, practical bullet-style statements.
+- Normally provide 2-4 points per category when there is enough
+  negotiation content to assess.
+- If there is genuinely nothing meaningful to say in a category,
+  return an empty array.
+- For a score of 0, do not invent feedback simply to fill the categories.
+
 
 IMPORTANT OUTPUT RULES:
 - Your response must contain ONLY the JSON object.

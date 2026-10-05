@@ -223,6 +223,179 @@
   color:var(--paper-dim);
 }
 
+/* Mobile layout */
+@media (max-width: 720px){
+
+  #app{
+    width:100%;
+    padding:20px 14px 40px;
+  }
+
+  .hero{
+    padding:14px 0 26px;
+    margin-bottom:22px;
+  }
+
+  .hero h1{
+    font-size:28px;
+    line-height:1.2;
+  }
+
+  .lede{
+    font-size:14px;
+  }
+
+  /* Tabs */
+  .tabs{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    white-space:nowrap;
+  }
+
+  .tabs::-webkit-scrollbar{
+    display:none;
+  }
+
+  .tab{
+    flex-shrink:0;
+    margin-right:18px;
+    padding:10px 2px;
+    font-size:14px;
+  }
+
+  /* Buttons */
+  .btn{
+    width:100%;
+    padding:13px 18px;
+  }
+
+  .btn-ghost{
+    width:100%;
+  }
+
+  /* Scenario list */
+  .scenario-item{
+    padding:14px;
+    gap:10px;
+  }
+
+  .scenario-item .name{
+    font-size:15px;
+  }
+
+  .scenario-item .hint{
+    font-size:12.5px;
+  }
+
+  /* Case layout */
+  .case-layout{
+    grid-template-columns:1fr;
+    gap:16px;
+  }
+
+  .case-file{
+    position:static;
+    padding:16px;
+  }
+
+  /* Chat */
+  .chat-thread{
+    min-height:360px;
+    width:100%;
+  }
+
+  .messages{
+    padding:16px 14px;
+    max-height:none;
+    gap:14px;
+  }
+
+  .msg{
+    max-width:94%;
+  }
+
+  .msg .bubble{
+    font-size:14px;
+    line-height:1.5;
+  }
+
+  /* Message composer */
+  .composer{
+    flex-direction:column;
+    gap:10px;
+    padding:12px 14px;
+  }
+
+  .composer input{
+    width:100%;
+    min-width:0;
+    font-size:16px;
+  }
+
+  .composer .btn{
+    width:100%;
+    margin-top:0;
+  }
+
+  /* Debrief */
+  .score-row{
+    align-items:flex-start;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+
+  .score{
+    font-size:44px;
+  }
+
+  .score-label{
+    font-size:13px;
+    line-height:1.4;
+    padding-top:5px;
+  }
+
+  .cols{
+    grid-template-columns:1fr;
+    gap:22px;
+  }
+
+  .tactics{
+    margin-top:22px;
+    padding-top:18px;
+  }
+
+  .coaching{
+    padding:14px;
+  }
+
+  /* Chat avatars */
+  .chat-msg{
+    max-width:96%;
+  }
+
+  .chat-avatar{
+    width:32px;
+    height:32px;
+    min-width:32px;
+    font-size:14px;
+  }
+
+  .chat-bubble{
+    font-size:14px;
+  }
+
+  /* Avatar preview */
+  .avatar-preview{
+    padding:18px 16px;
+  }
+
+  .avatar-msg .txt{
+    max-width:none;
+  }
+
+}
+
 </style>
 </head>
 <body>
@@ -396,12 +569,49 @@ SCORING RUBRIC — apply strictly, do not default to the middle of the range out
 7-9 = structured the negotiation well, used real leverage, held firm under pressure, only minor missed opportunities.
 10 = reserve for a genuinely expert-level performance with no meaningful technique gaps.
 
-If the buyer's combined turns amount to fewer than roughly 15 words of actual content, or contain no discernible negotiating move, this is an automatic 0 — do not find a token positive to justify a higher score, and say plainly in "strengths" that there is nothing to evaluate yet because no negotiation was attempted.
+If the buyer's combined turns amount to fewer than roughly 15 words of actual content, or contain no discernible negotiating move, this is an automatic 0 — do not find a token positive to justify a higher score.
 
-Assess only the buyer's turns in the transcript. Return ONLY valid JSON, with no markdown code fences and no preamble, in exactly this shape:
-{"score": <integer 0-10, reflecting technique and readiness for next time per the rubric above, NOT outcome quality>, "outcomeVsTarget": "${targetValue ? 'one sentence stating plainly whether the final outcome beat, met, or missed the buyer\'s stated target, with the numbers' : 'one sentence noting no target was provided, so outcome quality vs target could not be assessed'}", "strengths": ["...", "..."], "misses": ["...", "..."], "supplierTactics": "one or two sentences naming the tactics the supplier used", "coachingTip": "one concrete, specific thing to do differently next time"}
+Assess only the buyer's turns in the transcript.
 
-Each strengths/misses item should be one short, specific sentence grounded in something the buyer actually said. 2-4 items each, unless the score is 0, in which case strengths should simply state that nothing was attempted. Be honest, not encouraging for its own sake.`;
+Return ONLY valid JSON, with no markdown code fences and no preamble, in exactly this shape:
+
+{
+  "score": <integer 0-10, reflecting technique and readiness for next time per the rubric above, NOT outcome quality>,
+"outcomeVsTarget": "${targetValue ? 'one sentence stating plainly whether the final outcome beat, met, or missed the buyer’s stated target, with the numbers' : 'one sentence noting no target was provided, so outcome quality vs target could not be assessed'}",
+  "commercial": [
+    "one short, specific sentence about what happened commercially",
+    "one short, specific sentence about the buyer's commercial decisions",
+    "one short, specific sentence about any important commercial gap"
+  ],
+  "tactics": [
+    "one short, specific sentence about a supplier tactic or buyer tactic",
+    "one short, specific sentence about what worked or could have been handled differently",
+    "one short, specific sentence about leverage, anchoring or control"
+  ],
+  "risk": [
+    "one short, specific sentence about a contractual or commercial risk",
+    "one short, specific sentence about supplier leverage or missing information",
+    "one short, specific sentence about a risk created by a concession or commitment"
+  ],
+  "coachingTip": "one concrete, specific thing to do differently next time"
+}
+
+COMMERCIAL:
+Focus on the actual commercial position reached, including price, contract terms, scope, value, target, concessions and unresolved commercial issues.
+
+TACTICS:
+Focus on what happened during the negotiation. Identify supplier tactics, buyer tactics, leverage, anchoring, questioning, concessions, pressure and control of the conversation.
+
+RISK:
+Focus on what the buyer should be careful about. Identify contractual or commercial risks, supplier leverage, missing information, unresolved issues and risks created by concessions or commitments.
+
+Each item should be one short, specific sentence grounded in something actually said or agreed in the transcript.
+
+Use 2-4 useful items in each section. Do not invent issues that are not supported by the transcript.
+
+If the score is 0, commercial, tactics and risk should clearly state that there is not enough negotiation content to assess rather than inventing positive findings.
+
+Be honest, specific and commercially useful. Do not praise the buyer simply for participating.`;
 }
 
 function caseBuilderSystemPrompt(){
@@ -704,11 +914,15 @@ function renderSetup(){
     </div>` : '';
 
   return `
-    <div class="hero">
-      <div class="eyebrow">Off Book — negotiation practice for indirect buyers</div>
-      <h1>Practice the negotiations you've never run before.</h1>
-      <p class="lede">Indirect buyers rarely repeat the same category twice. Pick the kind of exposure you're least prepared for, and negotiate it live against a supplier who won't go easy on you.</p>
-    </div>
+  <div class="hero">
+    <div class="eyebrow">Off Book — negotiation training for procurement professionals</div>
+    <h1>Practise the negotiations you've never run before.</h1>
+    <p class="lede">
+      Off Book is a negotiation training tool. Choose a realistic procurement scenario,
+      negotiate live against a supplier who won't go easy on you, then get a debrief on
+      your commercial decisions, tactics and risks.
+    </p>
+  </div>
     <div class="tabs">${tabs}</div>
     ${body}
     ${briefBox}
@@ -775,46 +989,77 @@ function renderDebrief(){
   if(state.loading){
     return `<div class="hero"><div class="eyebrow">Debrief</div><h1>Reviewing the transcript…</h1></div><p class="lede">Scoring your questions, your concessions, and what the supplier got away with.</p>`;
   }
+
   if(!state.debrief){
     return `<div class="errbox">${state.error || 'Something went wrong generating the debrief.'}</div>
       <button class="btn-ghost" id="retry-debrief">Try again</button>`;
   }
+
   const d = state.debrief;
+
   return `
     <div class="hero">
       <div class="eyebrow">Debrief — ${state.selectedScenario.name}</div>
       <h1>How that negotiation actually went.</h1>
     </div>
+
     <div class="score-row">
       <div class="score">${d.score}/10</div>
-      <div class="score-label">technique &amp; readiness for next time<br/>(not the same as outcome quality)</div>
+      <div class="score-label">
+        technique &amp; readiness for next time<br/>
+        (not the same as outcome quality)
+      </div>
     </div>
-    ${d.outcomeVsTarget ? `<div class="coaching" style="border-left-color:var(--agree);margin-bottom:24px;"><p><strong style="color:var(--agree);">Outcome vs. your target: </strong>${d.outcomeVsTarget}</p></div>` : ''}
+
+    ${d.outcomeVsTarget ? `
+      <div class="coaching" style="border-left-color:var(--agree);margin-bottom:24px;">
+        <p>
+          <strong style="color:var(--agree);">Outcome vs. your target: </strong>
+          ${d.outcomeVsTarget}
+        </p>
+      </div>
+    ` : ''}
+
     <div class="cols">
+
       <div class="col strengths">
-        <h4>What worked</h4>
-        <ul>${d.strengths.map(x => `<li>${x}</li>`).join('')}</ul>
+        <h4>Commercial</h4>
+        <ul>
+          ${Array.isArray(d.commercial)
+            ? d.commercial.map(x => `<li>${x}</li>`).join('')
+            : `<li>${d.commercial || 'No commercial assessment available.'}</li>`
+          }
+        </ul>
       </div>
+
       <div class="col misses">
-        <h4>What to fix</h4>
-        <ul>${d.misses.map(x => `<li>${x}</li>`).join('')}</ul>
+        <h4>Tactics</h4>
+        <ul>
+          ${Array.isArray(d.tactics)
+            ? d.tactics.map(x => `<li>${x}</li>`).join('')
+            : `<li>${d.tactics || 'No tactics assessment available.'}</li>`
+          }
+        </ul>
       </div>
+
     </div>
+
     <div class="tactics">
-      <h4>Tactics the supplier used on you</h4>
-      <p>${d.supplierTactics}</p>
+      <h4>Risk</h4>
+      <p>${d.risk || 'No specific risks identified.'}</p>
     </div>
+
     <div class="coaching">
       <div style="display:flex;gap:12px;align-items:flex-start;">
-    <div class="chat-avatar coach">C</div>
-    <div>
-      <div style="font-size:12px;color:var(--agree);margin-bottom:5px;">
-        Coach
+        <div class="chat-avatar coach">C</div>
+        <div>
+          <div style="font-size:12px;color:var(--agree);margin-bottom:5px;">
+            Coach
+          </div>
+          <p>${d.coachingTip}</p>
+        </div>
       </div>
-      <p>${d.coachingTip}</p>
     </div>
-  </div>
-</div>
     <button class="btn-ghost" id="restart-btn" style="margin-top:28px;">Run another scenario</button>
   `;
 }
