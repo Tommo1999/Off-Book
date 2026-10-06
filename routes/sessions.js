@@ -341,10 +341,16 @@ router.post("/", (req, res) => {
 
         scenario:
 
-            scenario,
+    {
+        ...scenario,
+        targetValue:
+            req.body.targetValue ||
+            scenario.targetValue ||
+            null
+    },
 
-        status:
-            "active",
+status:
+    "active",
 
         startedAt:
             new Date().toISOString(),
@@ -453,7 +459,7 @@ router.post(
                         "claude-sonnet-4-6",
 
                     max_tokens:
-                        500,
+                        150,
 
                     system: `
 You are the supplier in a realistic procurement negotiation.
@@ -473,14 +479,23 @@ Supplier objective:
 ${session.scenario.objective}
 
 Rules:
-- Respond naturally as a real supplier would.
-- Do not immediately agree to the buyer's requests.
-- Protect the supplier's commercial interests.
+- Respond naturally as a real supplier in a live negotiation.
+- Be commercially realistic and protect the supplier's interests.
+- Do not immediately agree to requests or give away concessions.
 - Negotiate rather than simply answering questions.
-- Make reasonable concessions only when the buyer gives something in return.
-- Use realistic supplier negotiation tactics.
-- Do not reveal hidden objectives or private information.
-- Keep responses conversational and reasonably concise.
+- Use realistic supplier tactics such as anchoring, urgency, bundling and conditional concessions.
+- Do not reveal hidden objectives, walkaway points or private information.
+- Be direct and concise.
+- Maximum 2 sentences per response.
+- Maximum 30 words per response.
+- Ask no more than ONE question.
+- Do not make small talk.
+- Do not compliment the buyer.
+- Do not say you are excited to work together.
+- Do not introduce the company or explain its capabilities.
+- Do not repeat or summarise the buyer's message.
+- Do not provide multiple questions or a list of requirements.
+- Respond specifically to the buyer's latest point.
 `,
 
                     messages:
@@ -508,31 +523,40 @@ Rules:
 
 
             const supplierText =
-                supplierResponse.content.find(
-                    block =>
-                        block.type === "text"
-                );
+    supplierResponse.content.find(
+        block =>
+            block.type === "text"
+    );
 
 
-            if (!supplierText) {
+if (!supplierText) {
 
-                throw new Error(
-                    "Claude returned no text response"
-                );
-            }
+    throw new Error(
+        "Claude returned no text response"
+    );
+}
 
 
-            session.messages.push({
+const supplierMessage =
+    supplierText.text
+        .replace(/\*\*/g, "")
+        .trim()
+        .split(/\s+/)
+        .slice(0, 40)
+        .join(" ");
 
-                sender:
-                    "supplier",
 
-                message:
-                    supplierText.text,
+session.messages.push({
 
-                timestamp:
-                    new Date().toISOString()
-            });
+    sender:
+        "supplier",
+
+    message:
+        supplierMessage,
+
+    timestamp:
+        new Date().toISOString()
+});
 
 
         } catch (error) {
@@ -609,96 +633,142 @@ router.post(
                     max_tokens:
                         1200,
 
-                    system: `
-You are an expert procurement negotiation coach.
+                   system: `
+You are a sharp, experienced procurement negotiation coach reviewing a completed negotiation.
 
-Analyse the completed negotiation between a buyer and supplier.
-
-Scenario:
-${session.scenario.name}
-
-Supplier role:
-${session.scenario.supplierRole}
-
-Scenario brief:
+SCENARIO:
 ${session.scenario.brief}
 
-Supplier objective:
+BUYER'S OBJECTIVE:
 ${session.scenario.objective}
 
-Review the full negotiation below.
+BUYER'S TARGET:
+${session.scenario.targetValue || "No specific target provided"}
 
-Provide a useful, honest and practical procurement debrief.
+WALK-AWAY POINT:
+${session.scenario.walkAway || "No walk-away point provided"}
 
-Return ONLY valid JSON in exactly this structure:
+Review the full negotiation transcript below.
+
+IMPORTANT:
+The buyer's TECHNIQUE SCORE and the COMMERCIAL OUTCOME are two different things.
+
+The score measures negotiation technique ONLY.
+
+If the buyer achieved a good commercial outcome but used weak technique, give the buyer a low technique score but clearly state that the commercial outcome was successful.
+
+If the buyer used excellent technique but still missed their commercial target, give an appropriate technique score but clearly state that the commercial outcome missed the target.
+
+SCORING RUBRIC — apply strictly:
+
+0 = the buyer's turns contain no actual negotiating content at all — for example a greeting, a one-word reply, an immediate agreement with no terms discussed, or ending before any position, question or counter was made.
+
+1-3 = engaged, but gave up control almost immediately — accepted the first position offered, asked no useful clarifying questions, made no meaningful counter-proposal.
+
+4-6 = made some real negotiating moves — asked questions, pushed back, used some leverage or made a counter — but left clear value or control on the table.
+
+7-9 = structured the negotiation well, used real leverage, held firm under pressure and controlled the conversation, with only minor missed opportunities.
+
+10 = genuinely expert-level performance with no meaningful technique gaps.
+
+If the buyer's combined turns contain fewer than roughly 15 words of actual content, or contain no discernible negotiating move, this is an automatic 0.
+
+Assess only the BUYER'S turns when deciding the technique score.
+
+Return ONLY valid JSON with no markdown, no code fences and no explanation.
+
+Return EXACTLY this structure:
 
 {
   "score": 0,
-  "summary": "Short overall assessment.",
-  "commercial": [],
-  "tactics": [],
+  "outcomeVsTarget": "Clear statement of the final commercial outcome.",
+  "commercial": {
+    "positives": [],
+    "negatives": []
+  },
+  "tactics": {
+    "positives": [],
+    "negatives": []
+  },
   "risk": [],
-  "coachingTip": "The single most useful thing the buyer could improve next time."
+  "coachingTip": "One concrete thing to do differently next time."
 }
 
+OUTCOME VS TARGET:
 
-IMPORTANT FEEDBACK STRUCTURE:
+This must be a separate assessment from the technique score.
 
-- "commercial" should focus only on the commercial side of the negotiation.
-  Consider the buyer's target, value, price, concessions, trade-offs,
-  leverage and overall commercial outcome.
+Determine the final commercial outcome from what was actually agreed in the transcript.
 
-- "tactics" should focus only on negotiation technique.
-  Consider questioning, preparation, information control, anchoring,
-  leverage, trading concessions, handling supplier pressure and clarity.
-  Also identify the supplier tactics used against the buyer.
+If a buyer target is available in the transcript or session information, compare the final outcome against it.
 
-- "risk" should focus only on risks or potential problems.
-  Consider commercial risk, supplier leverage, contractual exposure,
-  assumptions, missing information and commitments made by the buyer.
+Clearly state whether the outcome BEAT, MET or MISSED the target.
 
-- Keep each point specific to what actually happened.
-- Do not repeat the same point across multiple categories.
-- Use short, practical bullet-style statements.
-- Normally provide 2-4 points per category when there is enough
-  negotiation content to assess.
-- If there is genuinely nothing meaningful to say in a category,
-  return an empty array.
-- For a score of 0, do not invent feedback simply to fill the categories.
+Include the relevant numbers whenever numbers are available.
 
+Do not allow the technique score to influence this assessment.
 
-IMPORTANT OUTPUT RULES:
-- Your response must contain ONLY the JSON object.
-- Do not provide an explanation before the JSON.
-- Do not provide an explanation after the JSON.
-- Do not use Markdown code fences.
-- The first character of your response must be {.
-- The final character of your response must be }.
+If no target can be established, say:
+"No target was available, so the final outcome could not be assessed against a specific target."
 
-- The score may range from 0 to 10.
-- 0 = no meaningful negotiation took place, or there was insufficient buyer participation to assess negotiation technique.
-- 1-2 = very weak negotiation technique.
-- 3-4 = weak negotiation technique with significant areas for improvement.
-- 5-6 = developing or mixed negotiation technique.
-- 7-8 = good negotiation technique.
-- 9 = very strong negotiation technique.
-- 10 = excellent negotiation technique.
-- If the buyer only sends a greeting such as "hi", "hello", "thanks", or another message that does not constitute a negotiation attempt, score 0.
-- Do not give the buyer a non-zero score merely because they started the conversation.
-- For a score of 0, do not invent strengths or supplier tactics simply to fill the arrays. Use an empty array when there is genuinely nothing meaningful to assess.
+COMMERCIAL:
 
-IMPORTANT:
-- If the buyer only sends a greeting such as "hi", "hello", "thanks", or another message that does not constitute a negotiation attempt, score 0.
-- If there are only one or two very short messages and no meaningful negotiation occurs, consider whether 0 is more appropriate than scoring the limited interaction.
-- Do not give the buyer a non-zero score merely because they started the conversation.
-- A score of 0 means there was not enough negotiation to assess; it is not a judgement that the buyer is incapable of negotiating.
-- Once meaningful negotiation has taken place, score the buyer based on the quality of their actual negotiation technique.
-- Consider preparation, questioning, leverage, information control, trading concessions, handling supplier pressure, and clarity.
-- Do not reward the buyer simply because the supplier was friendly.
-- Do not penalise the buyer simply because the supplier refused a request.
+Focus on the actual commercial outcome and decisions, including price, contract terms, scope, value, target, concessions and unresolved commercial issues.
 
-Keep the feedback specific to what actually happened in the negotiation.
-Do not invent actions that the buyer did not take.
+Separate genuine positives from genuine negatives.
+
+Commercial positives should identify things the buyer actually achieved or handled well commercially.
+
+Commercial negatives should identify genuine missed opportunities, weaknesses or unresolved commercial issues.
+
+TACTICS:
+
+Focus on what happened during the negotiation.
+
+Consider questioning, anchoring, leverage, information control, concessions, supplier pressure, preparation and control of the conversation.
+
+Separate genuine positives from genuine negatives.
+
+Tactical positives should identify things the buyer actually did well.
+
+Tactical negatives should identify genuine technique weaknesses or missed opportunities.
+
+RISK:
+
+Focus only on exposure and things the buyer should be careful about.
+
+Consider contractual or commercial risks, supplier leverage, missing information, unresolved issues and risks created by concessions or commitments.
+
+Do NOT split risk into positives and negatives.
+
+ABSENCE RULE:
+
+Do not manufacture positives or negatives simply to fill a section.
+
+If there are no genuine commercial positives, return:
+["Nothing notable here."]
+
+If there are no genuine commercial negatives, return:
+["Nothing notable here."]
+
+If there are no genuine tactical positives, return:
+["Nothing notable here."]
+
+If there are no genuine tactical negatives, return:
+["Nothing notable here."]
+
+If there is not enough negotiation content to assess a section, say so plainly rather than inventing findings.
+
+If the score is 0, commercial, tactics and risk should clearly state that there is not enough negotiation content to assess.
+
+Keep every item short, specific and grounded in something actually said or agreed in the transcript.
+
+Do not praise the buyer simply for participating.
+
+Most importantly:
+A buyer can have a LOW technique score AND a GOOD commercial outcome.
+
+Make that distinction completely clear in the debrief.
 `,
 
                     messages: [

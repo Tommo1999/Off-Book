@@ -551,7 +551,15 @@ If the buyer asks sharp, well-structured questions, proposes fair trades, or dem
 
 ${playbook ? "The buyer's organisation has internal negotiation guidance you are not privy to, but it may show up in how sharp their questions are:\n" + playbook : ""}
 
-Keep responses to 2-5 sentences, written like something a real negotiator would actually say — not a lecture, not a summary of tactics.`;
+Respond in SHORT conversational replies only.
+
+HARD LIMIT: maximum 30 words and maximum 2 sentences.
+
+Most replies should be 15-25 words. Never exceed 30 words.
+
+Reply only to the buyer's latest message. Do not provide introductions, background, summaries, explanations, multiple questions, or unnecessary context.
+
+If the buyer says "hi", respond with a brief greeting and ONE question only.`;
 }
 
 function debriefSystemPrompt(scenario, dealData, targetValue){
@@ -559,59 +567,118 @@ function debriefSystemPrompt(scenario, dealData, targetValue){
 
 SCENARIO: ${scenario.brief}
 BUYER'S OBJECTIVE: ${scenario.objective}
-${dealData ? `BUYER'S REAL NUMBERS GOING IN (private — the supplier only knows what the buyer actually said in the transcript): ${dealData}\nAssess whether, when, and how well the buyer used these numbers: did they lead with them, hold them back too long, disclose them at a moment that gained leverage, or fail to use them at all?` : ''}
-${targetValue ? `BUYER'S REAL TARGET / WALKAWAY (private, not known to the supplier): ${targetValue}\nCRITICAL: first work out whether the final outcome in the transcript actually met or beat this target. If it did, that is a genuine win regardless of how the technique looked along the way — do not mark down an outcome that beat the buyer's own target just because the process wasn't textbook. Technique feedback and outcome quality are separate things; report both, but never let imperfect technique imply a bad outcome when the numbers say otherwise.` : ''}
+${dealData ? `BUYER'S REAL NUMBERS GOING IN (private — the supplier only knows what the buyer actually said in the transcript): ${dealData}
+Assess whether, when, and how well the buyer used these numbers.` : ''}
+${targetValue ? `BUYER'S REAL TARGET / WALKAWAY (private, not known to the supplier): ${targetValue}
+CRITICAL OUTCOME RULE: independently determine the final outcome from the transcript and compare it with the buyer's target.
+
+Outcome and technique are TWO DIFFERENT THINGS.
+
+If the final outcome BEAT the buyer's target, clearly say that it was a WIN, even if the negotiation technique was poor.
+
+If the final outcome MET the target, clearly say that it MET the target.
+
+If the final outcome MISSED the target, clearly say that it MISSED the target.
+
+Never allow a low technique score to make a successful commercial outcome sound like a failure. The score measures TECHNIQUE ONLY. Outcome vs Target measures whether the buyer achieved their commercial target.` : ''}
 
 SCORING RUBRIC — apply strictly, do not default to the middle of the range out of politeness:
-0 = the buyer's turns contain no actual negotiating content at all — a greeting, a one-word reply, an immediate agreement with no terms discussed, or ending before any position, question, or counter was made. This is not "engaged but weak," it is "did not negotiate," and must score 0 regardless of anything else.
-1-3 = engaged, but gave up control almost immediately — accepted the first position offered, asked no clarifying questions, made no counter-proposal.
-4-6 = made some real moves (asked questions, pushed back at least once, used some leverage) but left clear value or control on the table.
-7-9 = structured the negotiation well, used real leverage, held firm under pressure, only minor missed opportunities.
-10 = reserve for a genuinely expert-level performance with no meaningful technique gaps.
 
-If the buyer's combined turns amount to fewer than roughly 15 words of actual content, or contain no discernible negotiating move, this is an automatic 0 — do not find a token positive to justify a higher score.
+0 = the buyer's turns contain no actual negotiating content at all — a greeting, a one-word reply, an immediate agreement with no terms discussed, or ending before any position, question, or counter was made. This is "did not negotiate" and must score 0.
 
-Assess only the buyer's turns in the transcript.
+1-3 = engaged, but gave up control almost immediately — accepted the first position offered, asked no useful clarifying questions, made no meaningful counter-proposal.
+
+4-6 = made some real negotiating moves — asked questions, pushed back, used some leverage or made a counter — but left clear value or control on the table.
+
+7-9 = structured the negotiation well, used real leverage, held firm under pressure and controlled the conversation, with only minor missed opportunities.
+
+10 = genuinely expert-level performance with no meaningful technique gaps.
+
+If the buyer's combined turns contain fewer than roughly 15 words of actual content, or contain no discernible negotiating move, this is an automatic 0.
+
+Assess only the buyer's turns for the technique score.
 
 Return ONLY valid JSON, with no markdown code fences and no preamble, in exactly this shape:
 
 {
-  "score": <integer 0-10, reflecting technique and readiness for next time per the rubric above, NOT outcome quality>,
-"outcomeVsTarget": "${targetValue ? 'one sentence stating plainly whether the final outcome beat, met, or missed the buyer’s stated target, with the numbers' : 'one sentence noting no target was provided, so outcome quality vs target could not be assessed'}",
-  "commercial": [
-    "one short, specific sentence about what happened commercially",
-    "one short, specific sentence about the buyer's commercial decisions",
-    "one short, specific sentence about any important commercial gap"
-  ],
-  "tactics": [
-    "one short, specific sentence about a supplier tactic or buyer tactic",
-    "one short, specific sentence about what worked or could have been handled differently",
-    "one short, specific sentence about leverage, anchoring or control"
-  ],
+  "score": <integer 0-10, technique only>,
+  "outcomeVsTarget": "${targetValue ? 'one clear sentence stating whether the final outcome BEAT, MET, or MISSED the target, including the relevant numbers' : 'No target was provided, so outcome quality versus target could not be assessed.'}",
+  "commercial": {
+    "positives": [
+      "one short, specific commercial positive",
+      "one short, specific commercial positive"
+    ],
+    "negatives": [
+      "one short, specific commercial negative",
+      "one short, specific commercial negative"
+    ]
+  },
+  "tactics": {
+    "positives": [
+      "one short, specific tactical positive",
+      "one short, specific tactical positive"
+    ],
+    "negatives": [
+      "one short, specific tactical negative",
+      "one short, specific tactical negative"
+    ]
+  },
   "risk": [
-    "one short, specific sentence about a contractual or commercial risk",
-    "one short, specific sentence about supplier leverage or missing information",
-    "one short, specific sentence about a risk created by a concession or commitment"
+    "one short, specific risk",
+    "one short, specific risk"
   ],
   "coachingTip": "one concrete, specific thing to do differently next time"
 }
 
 COMMERCIAL:
-Focus on the actual commercial position reached, including price, contract terms, scope, value, target, concessions and unresolved commercial issues.
+Focus on the actual commercial outcome and decisions, including price, contract terms, scope, value, target, concessions and unresolved commercial issues.
+
+Separate genuine positives from genuine negatives.
+
+Commercial positives should identify things the buyer actually achieved or handled well commercially. Be especially clear when the buyer achieved or beat their target.
+
+Commercial negatives should identify genuine missed opportunities, weaknesses or unresolved commercial issues.
 
 TACTICS:
-Focus on what happened during the negotiation. Identify supplier tactics, buyer tactics, leverage, anchoring, questioning, concessions, pressure and control of the conversation.
+Focus on what happened during the negotiation: supplier tactics, buyer tactics, leverage, anchoring, questioning, concessions, pressure and control of the conversation.
+
+Separate genuine positives from genuine negatives.
+
+Tactical positives should identify things the buyer actually did well.
+
+Tactical negatives should identify genuine technique weaknesses or missed opportunities.
 
 RISK:
-Focus on what the buyer should be careful about. Identify contractual or commercial risks, supplier leverage, missing information, unresolved issues and risks created by concessions or commitments.
+Focus only on exposure and things the buyer should be careful about.
 
-Each item should be one short, specific sentence grounded in something actually said or agreed in the transcript.
+Identify contractual or commercial risks, supplier leverage, missing information, unresolved issues and risks created by concessions or commitments.
 
-Use 2-4 useful items in each section. Do not invent issues that are not supported by the transcript.
+Do NOT split risk into positives and negatives.
 
-If the score is 0, commercial, tactics and risk should clearly state that there is not enough negotiation content to assess rather than inventing positive findings.
+IMPORTANT ABSENCE RULE:
+Do not manufacture positives or negatives simply to fill a section.
 
-Be honest, specific and commercially useful. Do not praise the buyer simply for participating.`;
+If there are no genuine commercial positives, return:
+["Nothing notable here."]
+
+If there are no genuine commercial negatives, return:
+["Nothing notable here."]
+
+If there are no genuine tactical positives, return:
+["Nothing notable here."]
+
+If there are no genuine tactical negatives, return:
+["Nothing notable here."]
+
+If there is not enough negotiation content to assess a section, say so plainly rather than inventing findings.
+
+If the score is 0, commercial, tactics and risk should clearly state that there is not enough negotiation content to assess.
+
+Keep every item short, specific and grounded in something actually said or agreed in the transcript.
+
+Do not praise the buyer simply for participating.
+
+Most importantly: a buyer can have a LOW technique score AND a GOOD commercial outcome. Make that distinction completely clear in the debrief.`;
 }
 
 function caseBuilderSystemPrompt(){
@@ -987,7 +1054,11 @@ function renderChat(){
 
 function renderDebrief(){
   if(state.loading){
-    return `<div class="hero"><div class="eyebrow">Debrief</div><h1>Reviewing the transcript…</h1></div><p class="lede">Scoring your questions, your concessions, and what the supplier got away with.</p>`;
+    return `<div class="hero">
+      <div class="eyebrow">Debrief</div>
+      <h1>Reviewing the transcript…</h1>
+    </div>
+    <p class="lede">Scoring your questions, your concessions, and what the supplier got away with.</p>`;
   }
 
   if(!state.debrief){
@@ -996,6 +1067,26 @@ function renderDebrief(){
   }
 
   const d = state.debrief;
+
+  const commercial = d.commercial || {};
+  const tactics = d.tactics || {};
+  const risks = Array.isArray(d.risk) ? d.risk : [];
+
+  const commercialPositives = Array.isArray(commercial.positives)
+    ? commercial.positives
+    : [];
+
+  const commercialNegatives = Array.isArray(commercial.negatives)
+    ? commercial.negatives
+    : [];
+
+  const tacticPositives = Array.isArray(tactics.positives)
+    ? tactics.positives
+    : [];
+
+  const tacticNegatives = Array.isArray(tactics.negatives)
+    ? tactics.negatives
+    : [];
 
   return `
     <div class="hero">
@@ -1023,21 +1114,45 @@ function renderDebrief(){
     <div class="cols">
 
       <div class="col strengths">
-        <h4>Commercial</h4>
+        <h4>Commercial — Positives</h4>
         <ul>
-          ${Array.isArray(d.commercial)
-            ? d.commercial.map(x => `<li>${x}</li>`).join('')
-            : `<li>${d.commercial || 'No commercial assessment available.'}</li>`
+          ${commercialPositives.length
+            ? commercialPositives.map(x => `<li>${x}</li>`).join('')
+            : '<li>Nothing notable here.</li>'
           }
         </ul>
       </div>
 
       <div class="col misses">
-        <h4>Tactics</h4>
+        <h4>Commercial — Negatives</h4>
         <ul>
-          ${Array.isArray(d.tactics)
-            ? d.tactics.map(x => `<li>${x}</li>`).join('')
-            : `<li>${d.tactics || 'No tactics assessment available.'}</li>`
+          ${commercialNegatives.length
+            ? commercialNegatives.map(x => `<li>${x}</li>`).join('')
+            : '<li>Nothing notable here.</li>'
+          }
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="cols">
+
+      <div class="col strengths">
+        <h4>Tactics — Positives</h4>
+        <ul>
+          ${tacticPositives.length
+            ? tacticPositives.map(x => `<li>${x}</li>`).join('')
+            : '<li>Nothing notable here.</li>'
+          }
+        </ul>
+      </div>
+
+      <div class="col misses">
+        <h4>Tactics — Negatives</h4>
+        <ul>
+          ${tacticNegatives.length
+            ? tacticNegatives.map(x => `<li>${x}</li>`).join('')
+            : '<li>Nothing notable here.</li>'
           }
         </ul>
       </div>
@@ -1046,7 +1161,12 @@ function renderDebrief(){
 
     <div class="tactics">
       <h4>Risk</h4>
-      <p>${d.risk || 'No specific risks identified.'}</p>
+      <ul>
+        ${risks.length
+          ? risks.map(x => `<li>${x}</li>`).join('')
+          : '<li>No specific risks identified.</li>'
+        }
+      </ul>
     </div>
 
     <div class="coaching">
@@ -1056,11 +1176,14 @@ function renderDebrief(){
           <div style="font-size:12px;color:var(--agree);margin-bottom:5px;">
             Coach
           </div>
-          <p>${d.coachingTip}</p>
+          <p>${d.coachingTip || 'No coaching tip available.'}</p>
         </div>
       </div>
     </div>
-    <button class="btn-ghost" id="restart-btn" style="margin-top:28px;">Run another scenario</button>
+
+    <button class="btn-ghost" id="restart-btn" style="margin-top:28px;">
+      Run another scenario
+    </button>
   `;
 }
 
@@ -1180,8 +1303,11 @@ async function startNegotiation(){
         "Content-Type": "application/json"
       },
      body: JSON.stringify({
-     scenario: state.selectedScenario
-    })
+  scenario: state.selectedScenario,
+  dealData: state.dealData,
+  targetValue: state.targetValue,
+  playbook: state.playbook
+})
     });
 
     if(!response.ok){
