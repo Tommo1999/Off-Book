@@ -424,6 +424,24 @@
   background:#d3ac5f;
 }
 
+.home-btn{
+  position:absolute;
+  top:20px;
+  right:24px;
+  background:none;
+  border:1px solid var(--line);
+  color:var(--paper-dim);
+  padding:9px 16px;
+  font-family:'IBM Plex Sans';
+  font-size:13px;
+  cursor:pointer;
+}
+
+.home-btn:hover{
+  border-color:var(--brass-dim);
+  color:var(--paper);
+}
+
 </style>
 </head>
 <body>
@@ -899,10 +917,40 @@ async function generateCustomCase(){
 
 function render(){
   const app = document.getElementById('app');
-  if(state.screen === 'setup') app.innerHTML = renderSetup();
-  else if(state.screen === 'chat') app.innerHTML = renderChat();
-  else if(state.screen === 'debrief') app.innerHTML = renderDebrief();
+
+  const homeButton = state.screen !== 'setup'
+    ? `<button class="home-btn" id="home-btn">Home</button>`
+    : '';
+
+  if(state.screen === 'setup') {
+    app.innerHTML = renderSetup();
+  }
+  else if(state.screen === 'chat') {
+    app.innerHTML = homeButton + renderChat();
+  }
+  else if(state.screen === 'debrief') {
+    app.innerHTML = homeButton + renderDebrief();
+  }
+
   attachHandlers();
+
+  const homeBtn = document.getElementById('home-btn');
+
+  if(homeBtn) {
+    homeBtn.onclick = () => {
+      state.screen = 'setup';
+      state.activeTab = 'category';
+      state.selectedScenario = null;
+      state.sessionId = null;
+      state.messages = [];
+      state.loading = false;
+      state.debrief = null;
+      state.error = null;
+
+      render();
+    };
+  }
+
   const thread = document.querySelector('.messages');
   if(thread) thread.scrollTop = thread.scrollHeight;
 }
