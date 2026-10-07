@@ -907,7 +907,7 @@ function renderSetup(){
     } else {
       body = `<div class="scenario-list">${state.libraryScenarios.map(item => {
         const sel = state.selectedScenario && state.selectedScenario.id === item.id;
-        return `<div class="scenario-item ${sel?'selected':''}" data-lib-scenario="${item.id}">
+        return `<div class="scenario-item ${sel?'selected':''}" data-lib-scenario="${item._id}">
           <div><div class="name">${item.name}</div><div class="hint">${item.supplierRole}</div></div>
           <div class="chev">${sel ? 'selected' : 'choose'}</div>
         </div>`;
@@ -1187,13 +1187,15 @@ function attachHandlers(){
       }
     };
   });
-  document.querySelectorAll('.scenario-item[data-scenario]').forEach(el => {
-    el.onclick = () => {
-      const id = el.dataset.scenario;
-      state.selectedScenario = allScenariosFlat().find(s => s.id === id);
-      render();
-    };
-  });
+  document.querySelectorAll('.scenario-item[data-lib-scenario]').forEach(el => {
+  el.onclick = () => {
+    const id = el.dataset.libScenario;
+    state.selectedScenario = state.libraryScenarios.find(
+      s => String(s._id) === String(id)
+    );
+    render();
+  };
+});
   document.querySelectorAll('.scenario-item[data-lib-scenario]').forEach(el => {
     el.onclick = () => {
       const id = el.dataset.libScenario;
