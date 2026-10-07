@@ -1187,12 +1187,24 @@ function attachHandlers(){
       }
     };
   });
-  document.querySelectorAll('.scenario-item[data-lib-scenario]').forEach(el => {
+document.querySelectorAll('.scenario-item[data-lib-scenario]').forEach(el => {
   el.onclick = () => {
     const id = el.dataset.libScenario;
-    state.selectedScenario = state.libraryScenarios.find(
+
+    const libraryScenario = state.libraryScenarios.find(
       s => String(s._id) === String(id)
     );
+
+    if(!libraryScenario) return;
+
+    state.selectedScenario = {
+      id: String(libraryScenario._id),
+      name: libraryScenario.name,
+      supplierRole: libraryScenario.supplierRole,
+      brief: libraryScenario.brief,
+      objective: libraryScenario.objective
+    };
+
     render();
   };
 });
