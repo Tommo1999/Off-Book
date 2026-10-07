@@ -1292,8 +1292,13 @@ async function startNegotiation(){
 })
     });
 
-    if(!response.ok){
-      throw new Error("Failed to create session");
+   if(!response.ok){
+      const errorData = await response.json().catch(() => ({}));
+      console.error("Start negotiation error:", errorData);
+
+      throw new Error(
+        errorData.error || "Failed to create session"
+      );
     }
 
     const session = await response.json();
@@ -1304,7 +1309,7 @@ async function startNegotiation(){
 
   }catch(err){
     console.error(err);
-    state.error = "Couldn't start the negotiation. Please try again.";
+    state.error = err.message || "Couldn't start the negotiation. Please try again.";
   }finally{
     state.loading = false;
     render();
