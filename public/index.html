@@ -1196,13 +1196,7 @@ function attachHandlers(){
     render();
   };
 });
-  document.querySelectorAll('.scenario-item[data-lib-scenario]').forEach(el => {
-    el.onclick = () => {
-      const id = el.dataset.libScenario;
-      state.selectedScenario = state.libraryScenarios.find(s => s.id === id);
-      render();
-    };
-  });
+  
   const surpriseBtn = document.getElementById('surprise-btn');
   if(surpriseBtn) surpriseBtn.onclick = () => {
     const all = allScenariosFlat();
