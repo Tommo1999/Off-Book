@@ -404,6 +404,31 @@
 
 }
 
+.surprise-box{
+  margin-bottom:28px;
+  padding:24px;
+  background:var(--brass);
+  color:var(--ink);
+  border-radius:4px;
+  text-align:center;
+}
+
+.surprise-btn{
+  border:2px solid var(--ink);
+  background:var(--ink);
+  color:var(--paper);
+  padding:14px 28px;
+  font-family:'IBM Plex Sans', sans-serif;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+  border-radius:3px;
+}
+
+.surprise-btn:hover{
+  opacity:.9;
+}
+
 </style>
 </head>
 <body>
@@ -984,13 +1009,19 @@ function renderSetup(){
       your commercial decisions, tactics and risks.
     </p>
   </div>
+
+${state.activeTab !== 'custom' && state.activeTab !== 'library' ? `
+    <div class="surprise-box">
+      <button class="surprise-btn" id="surprise-btn">
+        Surprise me with a random scenario
+      </button>
+    </div>
+  ` : ''}
+
     <div class="tabs">${tabs}</div>
     ${body}
     ${briefBox}
-    ${state.activeTab !== 'custom' && state.activeTab !== 'library' ? `<div class="surprise"><button id="surprise-btn">Surprise me with a random scenario</button></div>` : ''}
-  `;
-}
-
+   
 function renderChat(){
   const s = state.selectedScenario;
  const msgs = state.messages.map(m => {
