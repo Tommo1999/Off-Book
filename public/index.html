@@ -717,14 +717,15 @@ async function loadLibrary(){
   render();
 
   try{
-    const saved = localStorage.getItem('offbook-library');
+    const res = await fetch('/api/library');
 
-    state.libraryScenarios = saved ? JSON.parse(saved) : [];
-
-    // Make sure the stored data is an array
-    if(!Array.isArray(state.libraryScenarios)){
-      state.libraryScenarios = [];
+    if(!res.ok){
+      throw new Error('Failed to load library');
     }
+
+    const data = await res.json();
+
+    state.libraryScenarios = Array.isArray(data) ? data : [];
 
   }catch(err){
     console.error("Library load error:", err);
@@ -792,42 +793,27 @@ async function confirmAddToLibrary(){
       name: nameEl ? nameEl.value : state.anonPreview.name,
       supplierRole: roleEl ? roleEl.value : state.anonPreview.supplierRole,
       brief: briefEl ? briefEl.value : state.anonPreview.brief,
-      objective: objEl ? objEl.value : state.anonPreview.objective,
-      id: 'lib-' + Date.now()
+      objective: objEl ? objEl.value : state.anonPreview.objective
     };
 
-    // Read existing library from browser storage
-    let current = [];
+    const response = await fetch('/api/library', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(finalEntry)
+    });
 
-    try{
-      const saved = localStorage.getItem('offbook-library');
-      current = saved ? JSON.parse(saved) : [];
+    const data = await response.json();
 
-      // Make sure the stored data is actually an array
-      if(!Array.isArray(current)){
-        current = [];
-      }
-
-    }catch(e){
-      console.error("Library read error:", e);
-      current = [];
+    if(!response.ok){
+      throw new Error(data.error || 'Could not save to library');
     }
-
-    // Add the new scenario to the beginning
-    current.unshift(finalEntry);
-
-    // Keep maximum of 50 scenarios
-    if(current.length > 50){
-      current = current.slice(0, 50);
-    }
-
-    // Save library
-    localStorage.setItem(
-      'offbook-library',
-      JSON.stringify(current)
-    );
 
     state.libSaveStatus = 'saved';
+
+    // Reload the library from MongoDB
+    await loadLibrary();
 
   }catch(err){
     console.error("Library save error:", err);
@@ -835,7 +821,7 @@ async function confirmAddToLibrary(){
 
   }finally{
     render();
-   }
+  }
 }
 
 async function generateCustomCase(){
