@@ -1259,11 +1259,34 @@ document.querySelectorAll('.scenario-item[data-scenario]').forEach(el => {
 });
   
   const surpriseBtn = document.getElementById('surprise-btn');
-  if(surpriseBtn) surpriseBtn.onclick = () => {
-    const all = allScenariosFlat();
-    state.selectedScenario = all[Math.floor(Math.random()*all.length)];
-    render();
+
+if(surpriseBtn) surpriseBtn.onclick = () => {
+
+  const builtInScenarios = allScenariosFlat();
+
+  const libraryScenarios = Array.isArray(state.libraryScenarios)
+    ? state.libraryScenarios.map(s => ({
+        id: String(s._id),
+        name: s.name,
+        supplierRole: s.supplierRole,
+        brief: s.brief,
+        objective: s.objective
+      }))
+    : [];
+
+  const allScenarios = [
+    ...builtInScenarios,
+    ...libraryScenarios
+  ];
+
+  if(!allScenarios.length) return;
+
+  state.selectedScenario =
+    allScenarios[Math.floor(Math.random() * allScenarios.length)];
+
+  render();
   };
+
   const pbEl = document.getElementById('playbook');
   if(pbEl) pbEl.oninput = () => { state.playbook = pbEl.value; };
   const ddEl = document.getElementById('deal-data');
