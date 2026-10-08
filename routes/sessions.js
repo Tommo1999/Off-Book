@@ -276,9 +276,12 @@ function parseClaudeJson(text) {
 router.post("/", (req, res) => {
 
     const {
-        scenarioId,
-        scenario: scenarioData
-    } = req.body;
+    scenarioId,
+    scenario: scenarioData,
+    dealData,
+    targetValue,
+    playbook
+} = req.body;
 
     let scenario;
 
@@ -328,7 +331,7 @@ router.post("/", (req, res) => {
     }
 
 
-    const session = {
+   const session = {
 
         id: Date.now().toString(),
 
@@ -339,18 +342,27 @@ router.post("/", (req, res) => {
             scenario.name ||
             scenario.title,
 
-        scenario:
+        scenario: {
+            ...scenario,
+            targetValue:
+                targetValue ||
+                scenario.targetValue ||
+                null
+        },
 
-    {
-        ...scenario,
+        dealData:
+            dealData || "",
+
         targetValue:
-            req.body.targetValue ||
+            targetValue ||
             scenario.targetValue ||
-            null
-    },
+            null,
 
-status:
-    "active",
+        playbook:
+            playbook || "",
+
+        status:
+            "active",
 
         startedAt:
             new Date().toISOString(),
@@ -643,10 +655,53 @@ BUYER'S OBJECTIVE:
 ${session.scenario.objective}
 
 BUYER'S TARGET:
-${session.scenario.targetValue || "No specific target provided"}
+BUYER'S PRIVATE NUMBERS:
+${session.dealData || "No private numbers provided"}
 
-WALK-AWAY POINT:
-${session.scenario.walkAway || "No walk-away point provided"}
+BUYER'S TARGET / WALK-AWAY:
+${session.targetValue || "No target or walk-away provided"}
+
+BUYER'S PLAYBOOK:
+${session.playbook || "No playbook provided"}
+
+PREPARATION REVIEW:
+
+Rate the buyer's preparation using the BUYER'S PRIVATE NUMBERS, TARGET / WALK-AWAY and PLAYBOOK together.
+
+Do not penalise the buyer simply because one field is empty. Assess the preparation that was actually provided.
+
+Credit an element only when it is present AND specific. Length does not matter.
+
+Assess these five preparation elements:
+
+1. TARGET AND WALK-AWAY
+What a good deal looks like, and the point the buyer would walk away.
+
+2. PRIORITIES AND TRADE-OFFS
+What matters most, and what the buyer would give up to get it.
+
+3. ALTERNATIVES
+What the buyer would do if this supplier says no.
+
+4. QUESTIONS
+What the buyer needs to find out.
+
+5. OPENING POSITION
+Where the buyer will start and why.
+
+If none of the three preparation inputs contain anything useful, say exactly:
+"no preparation provided"
+
+That is NOT a penalty and must have NO effect on the technique score.
+
+If preparation was provided:
+- Give a short overall rating.
+- List which of the five elements were covered.
+- List which were missed.
+- Give ONE concrete nudge for improving the preparation.
+- Add ONE short line comparing the plan with what the buyer actually did in the negotiation.
+
+Keep the preparation feedback concise and practical.
 
 Review the full negotiation transcript below.
 
@@ -681,6 +736,13 @@ Return EXACTLY this structure:
 
 {
   "score": 0,
+  "preparation": {
+    "rating": "Short overall preparation rating.",
+    "covered": [],
+    "missed": [],
+    "nudge": "One concrete preparation improvement.",
+    "planVsActual": "One short comparison between the preparation and what the buyer actually did."
+  },
   "outcomeVsTarget": "Clear statement of the final commercial outcome.",
   "commercial": {
     "positives": [],
@@ -725,13 +787,29 @@ TACTICS:
 
 Focus on what happened during the negotiation.
 
-Consider questioning, anchoring, leverage, information control, concessions, supplier pressure, preparation and control of the conversation.
+Consider questioning, anchoring, leverage, information control, concessions, supplier pressure and control of the conversation.
 
 Separate genuine positives from genuine negatives.
 
 Tactical positives should identify things the buyer actually did well.
 
 Tactical negatives should identify genuine technique weaknesses or missed opportunities.
+
+IMPORTANT — NO DUPLICATE CREDIT:
+
+Each observation must appear in ONE category only.
+
+Use COMMERCIAL for the actual commercial result or terms achieved:
+price, savings, contract terms, scope, value, target achievement, concessions achieved or unresolved commercial outcomes.
+
+Use TACTICS for HOW the buyer negotiated:
+questioning, anchoring, leverage, information control, timing, pressure handling, concession strategy or control of the conversation.
+
+Do NOT repeat the same observation in both Commercial and Tactics.
+
+For example, if the buyer referenced a $900 market price, do not praise that same move in both sections. Put it in the single category where it is most relevant.
+
+Keep the feedback punchy. A single successful move should not generate multiple pieces of praise.
 
 RISK:
 

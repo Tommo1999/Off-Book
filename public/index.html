@@ -1033,7 +1033,7 @@ function renderSetup(){
       <p class="obj">${state.selectedScenario.objective}</p>
       <textarea id="deal-data" placeholder="Your real deal numbers (optional) — current spend, contract value, budget ceiling, targets. For your reference only: the supplier won't know these unless you choose to say them out loud">${state.dealData}</textarea>
       <textarea id="target-value" placeholder="Your target / walkaway point (optional but recommended) — the number or terms that would actually count as a win here. The debrief will judge the outcome against THIS, separately from your technique">${state.targetValue}</textarea>
-      <textarea id="playbook" placeholder="Paste your playbook, red-lines, or negotiation guidance (optional) — it will sharpen the supplier's questions, not soften them">${state.playbook}</textarea>
+      <textarea id="playbook" placeholder="Paste your playbook - this will be rated, include Target and Walkaway, Priorities and Trade-Offs, Alternatives, Questions and Opening Position">${state.playbook}</textarea>
       ${shareBlock}
       <button class="btn" id="start-btn">Start negotiation</button>
     </div>` : '';
@@ -1135,9 +1135,18 @@ function renderDebrief(){
 
   const d = state.debrief;
 
+  const preparation = d.preparation || {};
   const commercial = d.commercial || {};
   const tactics = d.tactics || {};
   const risks = Array.isArray(d.risk) ? d.risk : [];
+
+  const preparationCovered = Array.isArray(preparation.covered)
+    ? preparation.covered
+    : [];
+
+  const preparationMissed = Array.isArray(preparation.missed)
+    ? preparation.missed
+    : [];
 
   const commercialPositives = Array.isArray(commercial.positives)
     ? commercial.positives
@@ -1177,6 +1186,46 @@ function renderDebrief(){
         </p>
       </div>
     ` : ''}
+
+    <div class="tactics" style="margin-bottom:24px;">
+      <h4>Preparation</h4>
+
+      ${preparation.rating ? `
+        <p style="margin-bottom:16px;">
+          <strong>Overall:</strong> ${preparation.rating}
+        </p>
+      ` : ''}
+
+      ${preparationCovered.length ? `
+        <div style="margin-bottom:16px;">
+          <strong>Covered</strong>
+          <ul>
+            ${preparationCovered.map(x => `<li>${x}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${preparationMissed.length ? `
+        <div style="margin-bottom:16px;">
+          <strong>Missed</strong>
+          <ul>
+            ${preparationMissed.map(x => `<li>${x}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${preparation.nudge ? `
+        <p style="margin-bottom:16px;">
+          <strong>Nudge:</strong> ${preparation.nudge}
+        </p>
+      ` : ''}
+
+      ${preparation.planVsActual ? `
+        <p style="margin-bottom:0;">
+          <strong>Plan vs. actual:</strong> ${preparation.planVsActual}
+        </p>
+      ` : ''}
+    </div>
 
     <div class="cols">
 
