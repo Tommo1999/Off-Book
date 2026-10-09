@@ -760,18 +760,44 @@ OUTCOME VS TARGET:
 
 This must be a separate assessment from the technique score.
 
-Determine the final commercial outcome from what was actually agreed in the transcript.
+Determine the final commercial outcome from the actual agreement in the transcript, using the buyer's preparation and session information as supporting evidence.
 
-If a buyer target is available in the transcript or session information, compare the final outcome against it.
+SOURCE OF TRUTH FOR NUMBERS:
 
-Clearly state whether the outcome BEAT, MET or MISSED the target.
+Use the explicitly stated buyer target and walk-away from the preparation/session information when available.
 
-Include the relevant numbers whenever numbers are available.
+Use the transcript to establish the final agreed terms and any numbers explicitly discussed.
 
-Do not allow the technique score to influence this assessment.
+Do not confuse a supplier's offer, the buyer's opening position, the target, and the walk-away.
 
-If no target can be established, say:
+Do not substitute one number for another. If conflicting figures appear, acknowledge the inconsistency rather than silently choosing one.
+
+Keep all references to the target, walk-away and final agreed price consistent throughout the entire debrief.
+
+PRICE DIRECTION — PROCUREMENT:
+For a buyer negotiating a purchase price, a lower price is generally better.
+
+If the walk-away is the maximum acceptable price, a final price below it is within the buyer's threshold.
+
+If the final price equals the maximum acceptable price, the buyer has met the threshold.
+
+If the final price exceeds the maximum acceptable price, the buyer has breached the threshold.
+
+Never describe a price below the buyer's maximum acceptable purchase price as a breach or miss of that walk-away threshold.
+
+If the buyer's threshold is explicitly defined differently, follow that definition.
+
+TARGET VS WALK-AWAY:
+A target and a walk-away are not necessarily the same thing. Assess the agreed price against the actual target if one is provided, and assess it separately against the walk-away. Do not call the target missed solely because the walk-away was missed, or vice versa.
+
+Clearly state whether the outcome BEAT, MET or MISSED the target when a meaningful target is available. If only a walk-away is available, describe whether the agreed price was within or beyond that threshold instead of inventing a target.
+
+Include the relevant numbers and units whenever available. Do not let the technique score influence this assessment.
+
+If no target or meaningful threshold can be established, say:
 "No target was available, so the final outcome could not be assessed against a specific target."
+
+Consider the broader commercial context, such as savings against a previous contract price, scope, contract length and terms. Explain these separately from whether the agreed price met the buyer's target or walk-away. A strong saving against a previous price does not automatically mean the buyer met their target.
 
 COMMERCIAL:
 
@@ -797,19 +823,29 @@ Tactical negatives should identify genuine technique weaknesses or missed opport
 
 IMPORTANT — NO DUPLICATE CREDIT:
 
-Each observation must appear in ONE category only.
+Each observation must appear in ONE category only across Commercial, Tactics and Risk.
 
-Use COMMERCIAL for the actual commercial result or terms achieved:
-price, savings, contract terms, scope, value, target achievement, concessions achieved or unresolved commercial outcomes.
+Use COMMERCIAL for actual commercial results and terms achieved or missed: price, savings, target achievement, concessions, scope, contract terms and unresolved commercial outcomes.
 
-Use TACTICS for HOW the buyer negotiated:
-questioning, anchoring, leverage, information control, timing, pressure handling, concession strategy or control of the conversation.
+Use TACTICS for how the buyer negotiated: questioning, anchoring, leverage, information control, timing, pressure handling, concession strategy and control of the conversation.
 
-Do NOT repeat the same observation in both Commercial and Tactics.
+Use RISK only for ongoing exposure or potential harm, such as a weak contract protection, supplier dependency, an exposed walk-away number or unresolved legal terms.
 
-For example, if the buyer referenced a $900 market price, do not praise that same move in both sections. Put it in the single category where it is most relevant.
+Do not repeat the same event, number, action or conclusion in multiple categories. If an observation could fit more than one category, place it in the single most relevant category.
 
-Keep the feedback punchy. A single successful move should not generate multiple pieces of praise.
+For example:
+
+If the final price is below the buyer's maximum acceptable price, do not describe it as a commercial failure.
+
+If the buyer disclosed their walk-away, discuss that disclosure as a tactical weakness OR as a future risk, not both.
+
+Do not repeat a missed target in multiple Commercial negatives.
+
+Do not praise the same market-price reference in both Commercial and Tactics.
+
+Before returning the JSON, check all Commercial, Tactics and Risk items for duplication. Remove repeated observations and ensure all statements use the same agreed price, target and walk-away figures.
+
+Keep the feedback punchy. A single event should not generate multiple pieces of praise or criticism.
 
 RISK:
 
