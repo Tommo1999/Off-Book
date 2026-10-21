@@ -988,160 +988,183 @@ Make that distinction completely clear in the debrief.
 //
 // ============================================================
 
-router.get("/usage", (req, res) => {
+router.get("/usage", async (req, res) => {
 
-    const adminKey =
-        process.env.ADMIN_USAGE_KEY;
-
+    const adminKey = process.env.ADMIN_USAGE_KEY;
 
     if (adminKey) {
+        const suppliedKey = req.headers["x-admin-key"];
 
-        const suppliedKey =
-            req.headers["x-admin-key"];
-
-
-        if (
-            !suppliedKey ||
-            suppliedKey !== adminKey
-        ) {
-
+        if (!suppliedKey || suppliedKey !== adminKey) {
             return res.status(401).json({
-                error:
-                    "Unauthorised"
+                error: "Unauthorised"
             });
         }
     }
 
+    try {
 
-    const sessionList =
-        Object.values(sessions);
+        // Retrieve persisted API usage from MongoDB
+        const db = await connectDB();
 
+        const usageRecords = await db
+            .collection("api_usage")
+            .find({})
+            .toArray();
 
-    const completedSessions =
-        sessionList.filter(
-            session =>
-                session.status === "completed"
+        // Calculate totals from saved API calls
+        const usageTotals = {
+            totalRequests: usageRecords.length,
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
+            totalCostUSD: 0,
+            byType: {}
+        };
+
+        // Group API usage by session
+        const usageBySession = {};
+
+        for (const record of usageRecords) {
+
+            const inputTokens = record.inputTokens || 0;
+            const outputTokens = record.outputTokens || 0;
+            const costUSD = record.costUSD || 0;
+            const type = record.type || "unknown";
+
+            usageTotals.totalInputTokens += inputTokens;
+            usageTotals.totalOutputTokens += outputTokens;
+            usageTotals.totalCostUSD += costUSD;
+
+            // Totals by API call type
+            if (!usageTotals.byType[type]) {
+                usageTotals.byType[type] = {
+                    requests: 0,
+                    inputTokens: 0,
+                    outputTokens: 0,
+                    costUSD: 0
+                };
+            }
+
+            usageTotals.byType[type].requests++;
+            usageTotals.byType[type].inputTokens += inputTokens;
+            usageTotals.byType[type].outputTokens += outputTokens;
+            usageTotals.byType[type].costUSD += costUSD;
+
+            // Totals by negotiation session
+            if (record.sessionId) {
+
+                if (!usageBySession[record.sessionId]) {
+                    usageBySession[record.sessionId] = {
+                        requests: 0,
+                        inputTokens: 0,
+                        outputTokens: 0,
+                        costUSD: 0
+                    };
+                }
+
+                const sessionUsage =
+                    usageBySession[record.sessionId];
+
+                sessionUsage.requests++;
+                sessionUsage.inputTokens += inputTokens;
+                sessionUsage.outputTokens += outputTokens;
+                sessionUsage.costUSD += costUSD;
+            }
+        }
+
+        // Round monetary totals for reporting
+        const roundCost = value =>
+            Number(value.toFixed(6));
+
+        for (const type of Object.keys(usageTotals.byType)) {
+            usageTotals.byType[type].costUSD =
+                roundCost(usageTotals.byType[type].costUSD);
+        }
+
+        const sessionList = Object.values(sessions);
+
+        const completedSessions = sessionList.filter(
+            session => session.status === "completed"
         );
 
+        // Build the session report using MongoDB costs
+        const reportedSessions = sessionList.map(session => {
 
-    const totalSessionCost =
-        sessionList.reduce(
-            (total, session) =>
-                total +
-                (session.usage?.costUSD || 0),
-            0
+            const usage = usageBySession[session.id] || {
+                requests: 0,
+                inputTokens: 0,
+                outputTokens: 0,
+                costUSD: 0
+            };
+
+            return {
+                id: session.id,
+                scenario: session.scenarioTitle,
+                status: session.status,
+                startedAt: session.startedAt,
+                completedAt: session.completedAt || null,
+                requests: usage.requests,
+                inputTokens: usage.inputTokens,
+                outputTokens: usage.outputTokens,
+                costUSD: roundCost(usage.costUSD)
+            };
+        });
+
+        // Average recorded cost for completed sessions
+        const completedSessionCosts = reportedSessions.filter(
+            session => session.status === "completed"
         );
 
+        const averageCostPerCompletedSession =
+            completedSessionCosts.length > 0
+                ? completedSessionCosts.reduce(
+                    (total, session) => total + session.costUSD,
+                    0
+                ) / completedSessionCosts.length
+                : 0;
 
-    const averageCostPerCompletedSession =
-        completedSessions.length > 0
-            ? completedSessions.reduce(
-                (total, session) =>
-                    total +
-                    (session.usage?.costUSD || 0),
-                0
-            ) / completedSessions.length
-            : 0;
+        res.json({
 
+            pricing: {
+                model: "claude-sonnet-4-6",
+                input: "$3 per million tokens",
+                output: "$15 per million tokens"
+            },
 
-    res.json({
-
-        pricing: {
-
-            model:
-                "claude-sonnet-4-6",
-
-            input:
-                "$3 per million tokens",
-
-            output:
-                "$15 per million tokens"
-        },
-
-
-        sessions: {
-
-            total:
-                sessionList.length,
-
-            completed:
-                completedSessions.length,
-
-            active:
-                sessionList.filter(
-                    session =>
-                        session.status === "active"
+            sessions: {
+                total: sessionList.length,
+                completed: completedSessions.length,
+                active: sessionList.filter(
+                    session => session.status === "active"
                 ).length
-        },
+            },
 
+            apiUsage: {
+                totalRequests: usageTotals.totalRequests,
+                totalInputTokens: usageTotals.totalInputTokens,
+                totalOutputTokens: usageTotals.totalOutputTokens,
+                totalCostUSD: roundCost(usageTotals.totalCostUSD)
+            },
 
-        apiUsage: {
+            averageCostPerCompletedSessionUSD:
+                roundCost(averageCostPerCompletedSession),
 
-            totalRequests:
-                usageTotals.totalRequests,
+            byType: usageTotals.byType,
 
-            totalInputTokens:
-                usageTotals.totalInputTokens,
+            sessionsDetail: reportedSessions
+        });
 
-            totalOutputTokens:
-                usageTotals.totalOutputTokens,
+    } catch (error) {
 
-            totalCostUSD:
-                Number(
-                    usageTotals.totalCostUSD.toFixed(6)
-                )
-        },
+        console.error(
+            "Failed to retrieve API usage:",
+            error.message
+        );
 
-
-        averageCostPerCompletedSessionUSD:
-            Number(
-                averageCostPerCompletedSession
-                    .toFixed(6)
-            ),
-
-
-        byType:
-            usageTotals.byType,
-
-
-        sessions:
-            sessionList.map(
-                session => ({
-
-                    id:
-                        session.id,
-
-                    scenario:
-                        session.scenarioTitle,
-
-                    status:
-                        session.status,
-
-                    startedAt:
-                        session.startedAt,
-
-                    completedAt:
-                        session.completedAt || null,
-
-                    requests:
-                        session.usage?.requests || 0,
-
-                    inputTokens:
-                        session.usage?.inputTokens || 0,
-
-                    outputTokens:
-                        session.usage?.outputTokens || 0,
-
-                    costUSD:
-                        Number(
-                            (
-                                session.usage?.costUSD ||
-                                0
-                            ).toFixed(6)
-                        )
-                })
-            )
-    });
+        return res.status(500).json({
+            error: "Failed to retrieve API usage"
+        });
+    }
 });
 
 
