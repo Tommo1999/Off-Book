@@ -571,6 +571,46 @@ session.messages.push({
             });
         }
 
+// Persist the latest session state in MongoDB
+        try {
+
+            const db = await connectDB();
+
+            const result = await db
+                .collection("sessions")
+                .updateOne(
+                    { id: session.id },
+                    {
+                        $set: {
+                            messages: session.messages,
+                            usage: session.usage
+                        }
+                    }
+                );
+
+            if (result.matchedCount === 0) {
+                console.error(
+                    "Session not found in MongoDB:",
+                    session.id
+                );
+
+                return res.status(500).json({
+                    error: "Session record not found"
+                });
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Failed to persist session:",
+                error.message
+            );
+
+            return res.status(500).json({
+                error: "Failed to save session"
+            });
+        }
+
 
         res.json({
 
