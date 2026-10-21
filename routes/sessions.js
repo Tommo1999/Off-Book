@@ -982,40 +982,41 @@ Make that distinction completely clear in the debrief.
             }
 
 
-            session.debrief =
-                debrief;
+            session.debrief = debrief;
 
-            session.status =
-                "completed";
+            session.status = "completed";
 
             session.completedAt =
                 new Date().toISOString();
 
+            // Persist the completed session in MongoDB
+            const db = await connectDB();
 
-            res.json({
+            const result = await db
+                .collection("sessions")
+                .updateOne(
+                    { id: session.id },
+                    {
+                        $set: {
+                            debrief: session.debrief,
+                            status: session.status,
+                            completedAt: session.completedAt,
+                            messages: session.messages,
+                            usage: session.usage
+                        }
+                    }
+                );
 
-                sessionId:
-                    session.id,
+            if (result.matchedCount === 0) {
+                throw new Error(
+                    "Session record not found in MongoDB"
+                );
+            }
 
-                debrief:
-                    debrief
+            return res.json({
+                sessionId: session.id,
+                debrief: debrief
             });
-
-
-        } catch (error) {
-
-            console.error(
-                "Claude debrief error:",
-                error
-            );
-
-            res.status(500).json({
-                error:
-                    "Debrief generation failed"
-            });
-        }
-    }
-);
 
 
 // ============================================================
