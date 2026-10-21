@@ -1018,6 +1018,20 @@ Make that distinction completely clear in the debrief.
                 debrief: debrief
             });
 
+} catch (error) {
+
+            console.error(
+                "Debrief error:",
+                error
+            );
+
+            return res.status(500).json({
+                error: "Failed to generate debrief"
+            });
+        }
+    }
+);
+
 
 // ============================================================
 // USAGE / COST REPORT
@@ -1123,14 +1137,21 @@ router.get("/usage", async (req, res) => {
                 roundCost(usageTotals.byType[type].costUSD);
         }
 
-        const sessionList = Object.values(sessions);
+// Retrieve sessions from MongoDB
+const sessionRecords = await db
+    .collection("sessions")
+    .find({})
+    .toArray();
 
-        const completedSessions = sessionList.filter(
-            session => session.status === "completed"
-        );
+// Build a session lookup list
+const sessionList = sessionRecords;
 
-        // Build the session report using MongoDB costs
-        const reportedSessions = sessionList.map(session => {
+const completedSessions = sessionList.filter(
+    session => session.status === "completed"
+);
+
+// Build the session report using MongoDB costs
+const reportedSessions = sessionList.map(session => {
 
             const usage = usageBySession[session.id] || {
                 requests: 0,
