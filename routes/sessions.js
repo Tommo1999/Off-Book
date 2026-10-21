@@ -259,137 +259,138 @@ function parseClaudeJson(text) {
 // CREATE A NEW NEGOTIATION SESSION
 // ============================================================
 
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
 
-    const {
-    scenarioId,
-    scenario: scenarioData,
-    dealData,
-    targetValue,
-    playbook
-} = req.body;
+    try {
 
-    let scenario;
+        const {
+            scenarioId,
+            scenario: scenarioData,
+            dealData,
+            targetValue,
+            playbook
+        } = req.body;
 
+        let scenario;
 
-    // If frontend sends a complete scenario
-    if (scenarioData) {
+        // If frontend sends a complete scenario
+        if (scenarioData) {
 
-        if (
-            !scenarioData.id ||
-            !scenarioData.name ||
-            !scenarioData.supplierRole ||
-            !scenarioData.brief ||
-            !scenarioData.objective
-        ) {
+            if (
+                !scenarioData.id ||
+                !scenarioData.name ||
+                !scenarioData.supplierRole ||
+                !scenarioData.brief ||
+                !scenarioData.objective
+            ) {
+                return res.status(400).json({
+                    error: "Incomplete scenario data"
+                });
+            }
 
-            return res.status(400).json({
-                error: "Incomplete scenario data"
-            });
+            scenario = scenarioData;
         }
 
-        scenario = scenarioData;
-    }
+        // Otherwise use built-in scenario
+        else {
 
+            if (!scenarioId) {
+                return res.status(400).json({
+                    error: "scenarioId is required"
+                });
+            }
 
-    // Otherwise use built-in scenario
-    else {
+            scenario = scenarios.find(
+                scenario =>
+                    scenario.id === parseInt(scenarioId)
+            );
 
-        if (!scenarioId) {
-
-            return res.status(400).json({
-                error: "scenarioId is required"
-            });
+            if (!scenario) {
+                return res.status(404).json({
+                    error: "Scenario not found"
+                });
+            }
         }
 
-        scenario = scenarios.find(
-            scenario =>
-                scenario.id === parseInt(scenarioId)
-        );
+        const session = {
 
+            id: Date.now().toString(),
 
-        if (!scenario) {
+            scenarioId: scenario.id,
 
-            return res.status(404).json({
-                error: "Scenario not found"
-            });
-        }
-    }
+            scenarioTitle:
+                scenario.name || scenario.title,
 
+            scenario: {
+                ...scenario,
+                targetValue:
+                    targetValue ||
+                    scenario.targetValue ||
+                    null
+            },
 
-   const session = {
+            dealData: dealData || "",
 
-        id: Date.now().toString(),
-
-        scenarioId:
-            scenario.id,
-
-        scenarioTitle:
-            scenario.name ||
-            scenario.title,
-
-        scenario: {
-            ...scenario,
             targetValue:
                 targetValue ||
                 scenario.targetValue ||
-                null
-        },
+                null,
 
-        dealData:
-            dealData || "",
+            playbook: playbook || "",
 
-        targetValue:
-            targetValue ||
-            scenario.targetValue ||
-            null,
+            status: "active",
 
-        playbook:
-            playbook || "",
+            startedAt: new Date().toISOString(),
 
-        status:
-            "active",
+            messages: [],
 
-        startedAt:
-            new Date().toISOString(),
+            usage: {
 
-        messages: [],
+                requests: 0,
+                inputTokens: 0,
+                outputTokens: 0,
+                costUSD: 0,
 
-        usage: {
+                byType: {
 
-            requests: 0,
+                    negotiation: {
+                        requests: 0,
+                        inputTokens: 0,
+                        outputTokens: 0,
+                        costUSD: 0
+                    },
 
-            inputTokens: 0,
-
-            outputTokens: 0,
-
-            costUSD: 0,
-
-            byType: {
-
-                negotiation: {
-                    requests: 0,
-                    inputTokens: 0,
-                    outputTokens: 0,
-                    costUSD: 0
-                },
-
-                debrief: {
-                    requests: 0,
-                    inputTokens: 0,
-                    outputTokens: 0,
-                    costUSD: 0
+                    debrief: {
+                        requests: 0,
+                        inputTokens: 0,
+                        outputTokens: 0,
+                        costUSD: 0
+                    }
                 }
             }
-        }
-    };
+        };
 
+        // Save the session to MongoDB first
+        const db = await connectDB();
 
-    sessions[session.id] =
-        session;
+        await db.collection("sessions").insertOne(session);
 
+        // Keep the existing in-memory session behaviour
+        sessions[session.id] = session;
 
-    res.status(201).json(session);
+        return res.status(201).json(session);
+
+    } catch (error) {
+
+        console.error(
+            "Failed to create session:",
+            error.message
+        );
+
+        return res.status(500).json({
+            error: "Failed to create session"
+        });
+    }
 });
 
 
