@@ -3,6 +3,7 @@ const router = express.Router();
 
 const Anthropic = require("@anthropic-ai/sdk");
 const scenarios = require("../data/scenarios");
+const { connectDB } = require("../db");
 
 const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY
@@ -70,7 +71,7 @@ const usageTotals = {
 // RECORD CLAUDE API USAGE
 // ============================================================
 
-function recordUsage(response, type, session = null) {
+async function recordUsage(response, type, session = null) {
 
     const inputTokens =
         response.usage?.input_tokens || 0;
@@ -86,93 +87,78 @@ function recordUsage(response, type, session = null) {
         (outputTokens / 1_000_000) *
         OUTPUT_COST_PER_MILLION;
 
-    const costUSD =
-        inputCost + outputCost;
+    const costUSD = inputCost + outputCost;
 
-
-    // --------------------------------------------------------
-    // Global totals
-    // --------------------------------------------------------
-
+    // Update existing in-memory totals
     usageTotals.totalRequests += 1;
-
     usageTotals.totalInputTokens += inputTokens;
-
     usageTotals.totalOutputTokens += outputTokens;
-
     usageTotals.totalCostUSD += costUSD;
 
-
-    // --------------------------------------------------------
-    // Totals by request type
-    // --------------------------------------------------------
-
     if (usageTotals.byType[type]) {
-
         usageTotals.byType[type].requests += 1;
-
         usageTotals.byType[type].inputTokens += inputTokens;
-
         usageTotals.byType[type].outputTokens += outputTokens;
-
         usageTotals.byType[type].costUSD += costUSD;
     }
 
-
-    // --------------------------------------------------------
-    // Session-specific usage
-    // --------------------------------------------------------
-
+    // Update existing session totals
     if (session) {
 
         if (!session.usage) {
-
             session.usage = {
                 requests: 0,
                 inputTokens: 0,
                 outputTokens: 0,
                 costUSD: 0,
-
-                byType: {
-                    negotiation: {
-                        requests: 0,
-                        inputTokens: 0,
-                        outputTokens: 0,
-                        costUSD: 0
-                    },
-
-                    debrief: {
-                        requests: 0,
-                        inputTokens: 0,
-                        outputTokens: 0,
-                        costUSD: 0
-                    }
-                }
+                byType: {}
             };
         }
 
-
         session.usage.requests += 1;
-
         session.usage.inputTokens += inputTokens;
-
         session.usage.outputTokens += outputTokens;
-
         session.usage.costUSD += costUSD;
 
-
-        if (session.usage.byType[type]) {
-
-            session.usage.byType[type].requests += 1;
-
-            session.usage.byType[type].inputTokens += inputTokens;
-
-            session.usage.byType[type].outputTokens += outputTokens;
-
-            session.usage.byType[type].costUSD += costUSD;
+        if (!session.usage.byType[type]) {
+            session.usage.byType[type] = {
+                requests: 0,
+                inputTokens: 0,
+                outputTokens: 0,
+                costUSD: 0
+            };
         }
+
+        session.usage.byType[type].requests += 1;
+        session.usage.byType[type].inputTokens += inputTokens;
+        session.usage.byType[type].outputTokens += outputTokens;
+        session.usage.byType[type].costUSD += costUSD;
     }
 
+    // Persist this API call in MongoDB
+    try {
+
+        const db = await connectDB();
+
+        await db.collection("api_usage").insertOne({
+            sessionId: session?.id || null,
+            type,
+            model: response.model || "claude-sonnet-4-6",
+            inputTokens,
+            outputTokens,
+            inputCostUSD: inputCost,
+            outputCostUSD: outputCost,
+            costUSD,
+            timestamp: new Date()
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Failed to save API usage to MongoDB:",
+            error.message
+        );
+    }
 
     console.log(
         `[USAGE] ${type} | ` +
@@ -527,7 +513,7 @@ Rules:
 
 
             // Record API usage
-            recordUsage(
+            await recordUsage(
                 supplierResponse,
                 "negotiation",
                 session
@@ -904,7 +890,7 @@ Make that distinction completely clear in the debrief.
 
 
             // Record API usage
-            recordUsage(
+            await recordUsage(
                 debriefResponse,
                 "debrief",
                 session
@@ -1270,7 +1256,7 @@ Even if the user's description is brief, always return a complete JSON object co
 
 
             // Record usage
-            recordUsage(
+           await recordUsage(
                 response,
                 "caseBuilder"
             );
@@ -1401,7 +1387,7 @@ ${JSON.stringify(scenario)}
 
 
             // Record usage
-            recordUsage(
+            await recordUsage(
                 response,
                 "anonymisation"
             );
